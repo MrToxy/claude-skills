@@ -1,6 +1,6 @@
 ---
 name: storytelling-tests
-description: Enforce storytelling test patterns with Arrange-Act-Assert structure and domain-specific testing language (DSTL). Use when asked to "write tests for", "create tests", "add tests", "review my tests", "check my tests", "improve test coverage", "make these tests better", "refactor these tests", or "test this function". Also triggers when writing, reviewing, or refactoring any test file (.test.ts, .spec.ts, .test.js, .spec.js, .test.py, _test.go, etc). Covers test case design: ZOMBIE mnemonic, boundary value analysis, equivalence partitioning, decision tables, and state transition testing.
+description: Enforce storytelling test patterns with Arrange-Act-Assert structure and domain-specific testing language (DSTL). Use when asked to "write tests for", "create tests", "add tests", "review my tests", "check my tests", "improve test coverage", "make these tests better", "refactor these tests", or "test this function". Also use when planning test implementation, designing test strategy, or when a plan includes steps to add or create tests. Also triggers when writing, reviewing, or refactoring any test file (.test.ts, .spec.ts, .test.js, .spec.js, .test.py, _test.go, etc). Covers test case design: ZOMBIE mnemonic, boundary value analysis, equivalence partitioning, decision tables, and state transition testing.
 metadata:
   version: "2.0.0"
 ---
