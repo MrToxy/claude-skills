@@ -30,13 +30,18 @@ Reference files:
    - File path → read the file
    - No input provided → ask: "Describe the idea in a few sentences."
 
-2. Classify maturity:
+2. Detect research doc. Set `has_research = true` if:
+   - The user explicitly provides a path like `docs/research/{name}.md` → read it
+   - OR `docs/research/` exists → list files, ask: "Found research docs: [list]. Should I use any of these?"
+   - If `has_research = true`: read the research doc and extract key findings (existing solutions, feasibility, risks, codebase findings).
+
+3. Classify maturity:
    - **Loose**: fewer than 5 sentences, or missing at least two of: target user, core goal, key constraint
    - **Refined**: has target user, core goal, and key constraint clearly stated
 
-3. Detect codebase context. Set `codebase_aware = true` if `.git` exists in the working directory AND the user's idea references existing code, a repo, or a specific feature.
+4. Detect codebase context. Set `codebase_aware = true` if `.git` exists in the working directory AND the user's idea references existing code, a repo, or a specific feature.
 
-4. Confirm understanding before proceeding. Output a 2–3 sentence summary of what you understood and ask: "Is this right, or should I adjust anything before we go deeper?"
+5. Confirm understanding before proceeding. Output a 2–3 sentence summary of what you understood and ask: "Is this right, or should I adjust anything before we go deeper?"
 
 ---
 
@@ -47,6 +52,11 @@ Read `references/probing-guide.md` for the 7 dimensions and example questions.
 **Rules:**
 - Probe in order: Problem → Users → Goals → Scope → Constraints → Risks → Prior Art
 - Loose ideas: probe all 7 dimensions. Refined ideas: probe only gaps.
+- If `has_research = true`: skip dimensions already covered by the research doc:
+  - Prior Art is covered → skip dimension 7
+  - Technical Feasibility + Risks are covered → skip dimensions 5 and 6
+  - State explicitly: "Skipping [dimension] — already covered in research doc."
+  - Only probe remaining gaps (typically: Users, Goals, Scope specifics)
 - Ask at most 3 questions per message
 - Label each message with the dimension(s) being explored: `[Probing: Problem → Users]`
 - Stop probing when ALL of the following are true, OR the user says "enough" / "skip" / "done":
@@ -91,8 +101,12 @@ If no risky unknowns were surfaced in Phase 2, skip this phase entirely and say:
 
 3. Write the PRD using all information gathered in Phases 1–3:
    - Remove guidance text (italics) from each section before writing
-   - Technical Considerations: include codebase findings from Phase 3 if applicable
-   - Open Questions: include any unresolved items from probing or tracer bullets
+   - If `has_research = true`:
+     - Add a "Research Reference" line at the top: `> Research: [docs/research/{name}.md](docs/research/{name}.md)`
+     - Technical Considerations: pull from research doc's Technical Feasibility + Codebase Findings sections
+     - Risks table: seed with risks identified in the research doc
+   - Technical Considerations: include codebase findings from Phase 3 if applicable (and not already pulled from research)
+   - Open Questions: include any unresolved items from probing, tracer bullets, or research doc
 
 4. After writing, display the file path and a one-sentence summary of what was written
 
