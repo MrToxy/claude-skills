@@ -1,6 +1,6 @@
 # Tribunal Personas
 
-These are instructions for the three tribunal persona agents. Each agent receives the full plan text and the section below corresponding to its persona. Agents must NOT edit any files — read-only analysis only.
+These are instructions for the three tribunal persona agents. Each agent receives the plan text produced by the interview phase (revised or newly created) and the section below corresponding to its persona. Agents see only this plan — they do not have access to the interview transcript or the original raw input. Agents must NOT edit any files — read-only analysis only.
 
 ---
 
