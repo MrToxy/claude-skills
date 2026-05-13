@@ -51,6 +51,7 @@ Example questions:
 - What would a V1 include vs. what could ship in V2?
 - Are there adjacent features that should be excluded to keep this focused?
 - Is there existing functionality this replaces or extends?
+- Does any part of this scope touch a system covered by an existing ADR? If so, name the ADR.
 
 ---
 
@@ -63,6 +64,7 @@ Example questions:
 - Is there a deadline or hard dependency on another team's work?
 - Are there legal, compliance, or accessibility requirements?
 - What's the budget or engineering capacity available?
+- Are there ADRs that limit the technical approach here? (the skill loads these automatically — reference them by number when probing)
 
 ---
 
