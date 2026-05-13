@@ -109,9 +109,9 @@ Use this structure for every PRD written by the `prd-designer` skill. Each secti
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-*Questions that must be answered before implementation begins. Assign an owner and a target resolution date if known.*
+*Historical record of non-trivial questions raised during the authoring interview and the resolution the user converged on. The PRD ships with zero open questions — anything that could not be resolved during the interview pauses the PRD until the user returns with the missing information. Write "None." if no notable questions came up.*
 
-1.
-2.
+1. **Q:** … **Resolution:** …
+2. **Q:** … **Resolution:** …
