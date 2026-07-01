@@ -33,6 +33,10 @@ without changing the repo, that criterion **fails** — you do not "fix" it.
    discover the repo's declared verification (`AGENTS.md` / `CLAUDE.md` / `cloud.md` /
    `.github/workflows` / `package.json` scripts) and run it **from scratch** — install,
    type-check, lint, tests, build. Do not reuse any cached result. Capture real output.
+   If a declared check needs hardware this environment can't provide — a real device or an OS-level
+   **simulator/emulator** (iOS Simulator / `xcodebuild` → macOS; an accelerated Android emulator →
+   nested virt) — do **not** silently pass it and do **not** crash on the missing tool: record it as
+   **`deferred-on-device`** for the criteria it covers.
 
 2. **Visual symptoms — re-render them yourself.** If the item is a UI/visual bug (or the change is
    UI-related), reproduce the symptom independently with **agent-browser** (you have `Bash`): render
@@ -42,9 +46,12 @@ without changing the repo, that criterion **fails** — you do not "fix" it.
    resolve the reported symptom **FAILS** — flag `visually-inert: symptom not resolved at <resolution>`.
    (This is the gate that catches a green-but-inert change.)
 
-3. **Judge each acceptance criterion** independently. For every AC: PASS or FAIL, each with
-   concrete evidence (the test that proves it, the command output, the rendered behavior).
-   "The implementer said so" is never evidence.
+3. **Judge each acceptance criterion** independently. For every AC: PASS, FAIL, or
+   **DEFERRED-ON-DEVICE**, each with concrete evidence (the test that proves it, the command output,
+   the rendered behavior). "The implementer said so" is never evidence. `DEFERRED-ON-DEVICE` is only
+   for a criterion this environment physically **cannot** exercise (needs a device/sim) — it is
+   **not** a pass (never rubber-stamp) and **not** a fail (the change isn't shown broken); name the
+   flow/platform a human must run. If you *can* exercise it, you must — deferral is a last resort.
 
 4. **Anti-gaming inspection** of the `diff` — the reason you exist. FAIL (and flag) on:
    - tests deleted, skipped, `.only`/`xit`/`it.skip`, or weakened to assert less;
@@ -64,12 +71,17 @@ without changing the repo, that criterion **fails** — you do not "fix" it.
 ```
 {
   "pass": <true only if every AC passes AND gamingFlags is empty>,
-  "perAc": [ { "ac": "...", "pass": bool, "evidence": "..." } ],
+  "perAc": [ { "ac": "...", "status": "pass|fail|deferred-on-device", "evidence": "..." } ],
   "gamingFlags": [ "..." ],
+  "deferredOnDevice": [ "flow / platform / native outcome a human must run on a real device or sim" ],
   "reRun": { "typecheck": "pass|fail", "lint": "...", "tests": "...", "build": "...", "visualRegression": "pass|fail|n/a" },
   "notes": "succinct verdict + anything a human reviewer must know"
 }
 ```
+
+When the *only* non-passes are `deferredOnDevice` (no `fail`, no `gamingFlags`), the pipeline opens a
+**flagged** draft PR — so reserve `deferred-on-device` for a genuine environmental limit. If you
+can't tell a device limitation from a real failure, call it **FAIL**.
 
 Default to **FAIL when uncertain**. A false "pass" ships a bad PR autonomously; a false
 "fail" only costs one more implement→verify round. The asymmetry is the point.

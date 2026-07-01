@@ -14,7 +14,7 @@ description: >
 # triage-resolve — solve · verify · ship
 
 Pure engineering core. No tracker calls. Input = a normalized item + targets; output =
-`{ prs: [{site, url}], humanFallbacks: [{site, reason}], blocked: [{site, reason}] }`. All
+`{ prs: [{site, url, needsOnDevice?}], humanFallbacks: [{site, reason}], blocked: [{site, reason}] }`. All
 worktree/PR work uses `git`/`gh`. Reads `limits` from `.claude/auto-triage.config.json`.
 
 `humanFallbacks` vs `blocked`: a **humanFallback** is a *product* call on an otherwise-healthy run
@@ -54,6 +54,11 @@ Never work in the live checkout; never commit to `base`. Remove the worktree on 
    pipeline's own **cross-cutting** gates — visual regression for UI, `/simplify` + `/code-review`
    for code — are mandatory on top and live in step 3. Loop until the repo's bar is green. (If a
    repo declares no verification, that itself is a signal — surface it rather than inventing one.)
+   **Environment capability:** if a declared check needs hardware this runner lacks — a real device
+   or an OS-level **simulator/emulator** (iOS Simulator / `xcodebuild` need macOS; an accelerated
+   Android emulator needs nested virt) — that is **not** `blocked` (the rest still verifies) and
+   **not** a silent pass. Detect the tool's absence (`maestro` / `xcodebuild` / emulator), classify it
+   a **device/sim check**, and route it to the hand-off in step 3 — never crash, never green it.
 5. Commit + push. Return `{ branch, ac, evidence, summary }`.
 6. **Cannot proceed?** A tool denied by permissions, a missing/broken tool, or any error you cannot
    overcome → **STOP**. Do not ask interactively, do not destructively work around the denial, do
@@ -75,19 +80,33 @@ pipeline-owned and run regardless of what the repo declares:
   Fold the symptom into the Acceptance Criteria as an observable check at the reported resolution.
 - **Touches code/logic** → run **`/simplify`** (the code-simplifier) on the change, then
   **`/code-review`**, and resolve their findings before proceeding.
+- **Needs a device/sim this runner can't provide** (diff touches `ios/`, `android/`,
+  `capacitor.config.*`, `e2e/maestro/`, a native plugin, or link/scheme/deep-link handoff) → you
+  **cannot** prove it here. Do NOT skip-and-green, do NOT `blocked`. Run every check you *can*, then
+  mark the affected Acceptance Criteria **`deferred-on-device`** and carry a
+  **`needs-on-device-verification`** hand-off: exactly which flows / platforms / native outcomes a
+  human must run (cite the repo's own coverage table). Absence of `maestro` / `xcodebuild` / an
+  emulator is *classified*, never an error.
 
-A change that is both UI and code runs both. Only a change that clears the applicable gates reaches
-the adversarial verifier.
+A change may hit several of these (UI + code + device/sim) — run each that applies. Only a change
+that clears the gates it **can** run here reaches the adversarial verifier; device/sim-deferred
+items proceed too, but flagged (step 5).
 
 ### 4. Independent verify — `triage-verifier` agent (read + test only)
 Spawn clean — fresh worktree of the *pushed* branch, zero implementation context — with
 `{ item, ac, diff }`. It re-runs the repo's verification **and the step-3 gates** from scratch
 (re-render the UI symptom at the reported resolution; don't take the implementer's word), judges
-each AC with evidence, runs the anti-gaming checks, and returns `{ pass, perAc, gamingFlags, notes }`.
-**Gate:** a draft PR opens only if `pass` and no `gamingFlags`.
+each AC with evidence, runs the anti-gaming checks, and returns `{ pass, perAc, gamingFlags, deferredOnDevice, notes }`.
+**Gate:** a full draft PR opens only if `pass` and no `gamingFlags`. If the *only* non-passes are
+`deferredOnDevice` (no real AC failure, no `gamingFlags`), open a **flagged** draft PR per step 5 —
+a device limitation the runner can't clear is not a fail. A genuine failure still blocks the PR.
 
 ### 5. Reconcile
 - pass → open **DRAFT PR** into `base` (body: item id, ticked AC, verification + regression evidence). Record `{site, url}`.
+- pass **except** AC marked `deferred-on-device` (no fails, no gaming) → open the **DRAFT PR**
+  anyway, add the **`needs-on-device-verification`** label + a comment listing the deferred checks,
+  leave those AC unticked with the reason, and record `{site, url, needsOnDevice:[checks]}`. The PR
+  must **not** claim device/mobile verification it didn't run.
 - !pass within `limits.implementVerifyRetries` → back to Agent A with the verifier's report; re-verify.
 - still !pass → no PR; `humanFallbacks += {site, reason}`.
 - Agent A aborted on a technical dead-end → no PR; `blocked += {site, reason}` (not a humanFallback).
