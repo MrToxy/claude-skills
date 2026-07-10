@@ -1,0 +1,65 @@
+{
+  "_comment": "EXAMPLE — copy to $CLAUDE_TRIAGE_DIR/settings.json and replace every __PROJECT_ROOT__ with your project's absolute path (e.g. /Users/you/dev/myproject — it begins with a slash). IMPORTANT: in Edit()/Write() rules a single leading slash is PROJECT-relative, so a filesystem-absolute path needs a DOUBLE slash — that is why those rules read `/__PROJECT_ROOT__/**` (the extra slash + your slash-prefixed path = `//...`). A single slash there silently matches nothing and every edit is denied. `additionalDirectories` and `sandbox.filesystem.allowWrite` take the real path (no extra slash). Also replace __CLAUDE_TRIAGE_DIR__ with your $CLAUDE_TRIAGE_DIR (the daemon's config dir, e.g. ~/.claude-triage) — its `session-env` MUST be sandbox-writable or Claude Code fails to create a per-command env dir and EVERY Bash call dies with EPERM. Keeps deny rules, drops the interactive ask rules (which hang headless), runs Bash in the macOS Seatbelt sandbox. Your interactive ~/.claude is untouched.",
+
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "additionalDirectories": ["__PROJECT_ROOT__"],
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Task",
+      "Skill",
+      "WebFetch",
+      "Edit(/__PROJECT_ROOT__/**)",
+      "Write(/__PROJECT_ROOT__/**)",
+      "Edit(/__PROJECT_ROOT__/.worktrees/**)",
+      "Write(/__PROJECT_ROOT__/.worktrees/**)",
+      "mcp__linear-server__*",
+      "Bash(git push:*)",
+      "Bash(gh:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(**/secrets/**)",
+      "Read(**/credentials*)",
+      "Edit(**/.env*)",
+      "Write(**/.env*)",
+      "Bash(rm -rf /)",
+      "Bash(rm -rf ~)",
+      "Bash(sudo *)",
+      "Bash(chmod 777 *)"
+    ]
+  },
+
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "autoAllowBashIfSandboxed": true,
+    "allowUnsandboxedCommands": false,
+    "excludedCommands": ["gh *", "git push *"],
+    "filesystem": {
+      "allowWrite": ["__CLAUDE_TRIAGE_DIR__/session-env", "__PROJECT_ROOT__", "__PROJECT_ROOT__/.worktrees"],
+      "denyRead": ["~/.env", "**/.env", "**/secrets/**"]
+    },
+    "credentials": {
+      "files": [
+        { "path": "~/.aws/credentials", "mode": "deny" },
+        { "path": "~/.ssh", "mode": "deny" },
+        { "path": "~/.npmrc", "mode": "deny" }
+      ],
+      "envVars": [
+        { "name": "ANTHROPIC_API_KEY", "mode": "deny" },
+        { "name": "GITHUB_TOKEN", "mode": "deny" },
+        { "name": "NPM_TOKEN", "mode": "deny" }
+      ]
+    },
+    "network": {
+      "allowedDomains": ["github.com", "api.github.com", "codeload.github.com", "*.githubusercontent.com", "registry.npmjs.org"],
+      "allowLocalBinding": true
+    }
+  }
+}

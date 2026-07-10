@@ -1,0 +1,13 @@
+# machine-specific filled-in configs — generate into ~/.claude-triage, never commit
+settings.json
+daemon.config.json
+control.json
+state.json
+spend-ledger.jsonl
+usage-cache.json
+com.auto-triage.plist
+logs/
+
+# container: local secrets + overrides — never commit
+.env
+docker-compose.override.yml

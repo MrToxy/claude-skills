@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- EXAMPLE — copy to ~/Library/LaunchAgents/, replace __HOME__ with your home dir (echo $HOME),
+     and adjust PATH if your tools live elsewhere (gh/node/etc). Fires every 15 min; the script's
+     mkdir-lock prevents overlap if a tick runs long. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.auto-triage</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__HOME__/.claude-triage/auto-triage-daemon.sh</string>
+  </array>
+
+  <key>StartInterval</key>
+  <integer>900</integer>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>__HOME__/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>CLAUDE_TRIAGE_DIR</key>
+    <string>__HOME__/.claude-triage</string>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>__HOME__/.claude-triage/logs/launchd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/.claude-triage/logs/launchd.err.log</string>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>

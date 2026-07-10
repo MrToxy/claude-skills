@@ -1,0 +1,50 @@
+# Auto-triage runner — develop-with-containers stack (Docker Compose).
+#   triage : the daemon (non-root; bypassPermissions; sandbox off — the container is the boundary)
+# Sidecars (DB, browser) are NOT defined here. They are declared PER-PROJECT in
+# .claude/auto-triage.config.json (`sidecars` + each site's `sidecars`/`sidecarEnv`) and materialized
+# host-side, per tick, by `triage-tick` (see triage/triage-tick) — a project that needs none spins up
+# none, and the generic image stays free of any repo/DB specifics.
+# Skills + routing config are BIND-MOUNTED read-only (host edits are live — the doc's live-sync loop).
+# Repos are cloned FRESH inside the container (isolation). Secrets + host paths come from .env only.
+name: auto-triage
+
+services:
+  triage:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: auto-triage:local
+    # Vars come from your --env-file (default ~/.claude-triage/container.env). Only the keys listed
+    # below are injected — the env file is never mounted or bulk-passed. Sidecar endpoint env
+    # (DB_HOST, DYNAMODB_ENDPOINT, AGENT_BROWSER_CDP_URL, …) is injected PER-TICK by `triage-tick` via
+    # `-e`, sourced from the project's per-site `sidecarEnv` — deliberately NOT hardcoded here.
+    environment:
+      CLAUDE_CODE_OAUTH_TOKEN: ${CLAUDE_CODE_OAUTH_TOKEN:?set CLAUDE_CODE_OAUTH_TOKEN in your env file}
+      GH_TOKEN: ${GH_TOKEN:?set GH_TOKEN in your env file}
+      LINEAR_API_KEY: ${LINEAR_API_KEY:?set LINEAR_API_KEY in your env file}
+      NPM_TOKEN: ${NPM_TOKEN:-}
+      GIT_AUTHOR_NAME: ${GIT_AUTHOR_NAME:-auto-triage}
+      GIT_AUTHOR_EMAIL: ${GIT_AUTHOR_EMAIL:-auto-triage@users.noreply.github.com}
+      TRIAGE_PERMISSION_MODE: bypassPermissions
+      TRIAGE_ONLY_SITES: ${TRIAGE_ONLY_SITES:-}          # `triage-tick <site>` sets this per tick; empty = all
+      TRIAGE_MAX_SPEND_5H_USD: ${TRIAGE_MAX_SPEND_5H_USD:-25}
+      TICK_INTERVAL: ${TICK_INTERVAL:-900}
+    volumes:
+      - triage-state:/home/node/.claude-triage                         # persistent state/ledger/logs
+      - ${CLAUDE_SKILLS_DIR}:/opt/claude-skills:ro                      # skills + daemon script (live)
+      - ${AGENTS_SKILLS_DIR}:/opt/agents-skills:ro                      # tdd, agent-browser (live)
+      - ${ROUTING_CONFIG}:/opt/routing.config.json:ro                   # per-project routing (no repo names in image)
+    networks: [triagenet]
+    develop:
+      watch:
+        # daemon.sh + skills are bind-mounted (already live each tick); rebuild only on entrypoint change
+        - path: ./entrypoint.sh
+          action: rebuild
+        - path: ./Dockerfile
+          action: rebuild
+
+volumes:
+  triage-state:
+
+networks:
+  triagenet:

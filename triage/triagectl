@@ -1,0 +1,75 @@
+#!/bin/bash
+# triagectl — control + status for the auto-triage daemon.
+#   triagectl status                 show running tickets, live 5h gauge, recent results
+#   triagectl pause [project]        pause everything (or one project)
+#   triagectl resume [project]       resume
+#   triagectl abandon <ticket|proj>  kill that ticket's run (or all of a project's); daemon acts ~5s
+#   triagectl clear-abandon          empty the abandon list
+#   triagectl stop                   pause all + kill anything running now
+#   triagectl budget [pct]           show or set the 5h-window hold threshold (e.g. budget 80)
+#   triagectl run [--force]          run one tick now (foreground); --force bypasses the budget gate
+#   triagectl watch [ticket]         live-tail a running ticket's agent transcript (or the latest)
+set -uo pipefail
+DAEMON_DIR="${CLAUDE_TRIAGE_DIR:-$HOME/.claude-triage}"
+CONTROL="$DAEMON_DIR/control.json"
+STATE="$DAEMON_DIR/state.json"
+CFG="$DAEMON_DIR/daemon.config.json"
+[ -f "$CONTROL" ] || printf '%s' '{"paused":false,"pausedProjects":[],"abandon":[]}' > "$CONTROL"
+set_ctl(){ local v; v=$(jq "$1" "$CONTROL" 2>/dev/null) && [ -n "$v" ] && { printf '%s' "$v" > "$CONTROL.tmp" && mv "$CONTROL.tmp" "$CONTROL"; }; }
+
+cmd="${1:-status}"; arg="${2:-}"
+case "$cmd" in
+  status)
+    echo "═══ auto-triage ═══"
+    if [ -f "$STATE" ]; then
+      jq -r '"updated:  \(.updated)\npaused:   \(.paused)\n5h usage: \(.fiveHourPct // "?")%  (hold ≥ \(.thresholdPct)%)   ← the budget\ndaemon used (5h): \(.daemonTokens5h // 0) tok  (~$\(.daemonSpend5hUsd // 0))"' "$STATE" 2>/dev/null
+      echo "─ running ─"
+      jq -r '(.running // []) | if length==0 then "  (idle)" else (.[] | "  • \(.ticket // "?")  (\(.project))  pid \(.pid)  \(.elapsedSec)s") end' "$STATE" 2>/dev/null
+      echo "─ recent ─"
+      jq -r '(.recent // []) | if length==0 then "  (none)" else (.[] | "  • \(.ts)  \(.ticket // .project)  \(.tokens // 0)tok  \(if .blocked then "BLOCKED" elif .is_error then "ERR" else "ok" end)  \(.result[0:68])") end' "$STATE" 2>/dev/null
+    else
+      echo "(no state yet — daemon hasn't run)"
+    fi
+    echo "─ control ─"
+    jq -r '"  paused: \(.paused)\n  pausedProjects: \((.pausedProjects // [])|join(", "))\n  abandon: \((.abandon // [])|join(", "))"' "$CONTROL" 2>/dev/null
+    ;;
+  pause)
+    if [ -n "$arg" ]; then set_ctl "(.pausedProjects // []) |= (. + [\"$arg\"] | unique) | ."; set_ctl ".pausedProjects = (.pausedProjects | unique)"; echo "paused project: $arg";
+    else set_ctl ".paused = true"; echo "paused (all)"; fi ;;
+  resume)
+    if [ -n "$arg" ]; then set_ctl "(.pausedProjects // []) -= [\"$arg\"]"; echo "resumed project: $arg";
+    else set_ctl ".paused = false"; echo "resumed (all)"; fi ;;
+  abandon)
+    [ -n "$arg" ] || { echo "usage: triagectl abandon <ticket|project>"; exit 1; }
+    set_ctl "(.abandon // []) |= (. + [\"$arg\"] | unique)"; echo "abandon requested: $arg (daemon kills within ~5s)" ;;
+  clear-abandon)
+    set_ctl ".abandon = []"; echo "cleared abandon list" ;;
+  stop)
+    set_ctl ".paused = true"
+    if [ -f "$STATE" ]; then
+      for pid in $(jq -r '(.running // [])[].pid' "$STATE" 2>/dev/null); do kill "$pid" 2>/dev/null && echo "killed $pid"; done
+    fi
+    echo "stopped (paused + killed running)" ;;
+  budget)
+    [ -f "$CFG" ] || { echo "no daemon.config.json"; exit 1; }
+    if [ -z "$arg" ]; then echo "5h hold threshold: $(jq -r '.budget.maxFiveHourPercent' "$CFG")%"; exit 0; fi
+    v=$(jq --argjson p "$arg" '.budget.maxFiveHourPercent=$p' "$CFG") && printf '%s' "$v" > "$CFG.tmp" && mv "$CFG.tmp" "$CFG"
+    echo "5h hold threshold set to $arg%" ;;
+  run)
+    exec "$DAEMON_DIR/auto-triage-daemon.sh" "${@:2}" ;;
+  watch)
+    PROJ="$DAEMON_DIR/projects"
+    if [ -n "$arg" ]; then
+      F=$(grep -l "/triage $arg" "$PROJ"/*/*.jsonl 2>/dev/null | xargs ls -t 2>/dev/null | head -1)
+    else
+      F=$(ls -t "$PROJ"/*/*.jsonl 2>/dev/null | head -1)
+    fi
+    [ -n "$F" ] || { echo "no session transcript found${arg:+ for $arg}"; exit 1; }
+    echo "▶ watching ${arg:-latest session}  (Ctrl-C to stop — does not affect the run)"
+    tail -f "$F" | jq -rc 'select(.type=="assistant") | .message.content[]? |
+      if .type=="text" then "💬 "+.text
+      elif .type=="tool_use" then "→ "+.name+"  "+((.input.command//.input.file_path//.input.description//.input.prompt//"")|tostring|.[0:90])
+      else empty end' 2>/dev/null ;;
+  *)
+    echo "usage: triagectl status|pause [project]|resume [project]|abandon <ticket|project>|clear-abandon|stop|budget [pct]|run [--force]|watch [ticket]" ;;
+esac

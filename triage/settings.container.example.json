@@ -1,0 +1,11 @@
+{
+  "_comment": "CONTAINER profile for the auto-triage runner. The CONTAINER is the isolation boundary, so Claude Code's own Bash sandbox is OFF and permissions are BYPASSED (dontAsk auto-denies unlisted tools and would block Edit/Write/`git worktree add` — the whole reason we moved off the Mac). Rendered to $CLAUDE_TRIAGE_DIR/settings.json by entrypoint.sh. Subscription-only: ANTHROPIC_API_KEY is never set (entrypoint fails fast if it is). bypassPermissions refuses to run as root, so the image runs as a non-root user.",
+
+  "permissions": {
+    "defaultMode": "bypassPermissions"
+  },
+
+  "sandbox": {
+    "enabled": false
+  }
+}

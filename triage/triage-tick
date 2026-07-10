@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# triage-tick <site> [-- extra daemon args] — run ONE auto-triage tick scoped to <site>, provisioning
+# ONLY the sidecars that site declares. Host-side; NO docker-in-docker (the triage container never gets
+# a docker socket — that is the security boundary). Reads the per-project config for the sidecar compose
+# fragment (`.sidecars.services`, valid compose in JSON) + the site's service subset (`.routing.map
+# .<site>.sidecars`) + endpoint env (`.sidecarEnv`), brings those up on `triagenet`, runs the tick with
+# that env injected, then tears them down. A site with `sidecars: []` (or none) runs with zero sidecars.
+#
+# Usage:  triage-tick server            # postgres sidecar → server tick → teardown
+#         triage-tick site-a               # no sidecars → plain tick
+#         triage-tick server -- --force # pass extra args through to the daemon
+set -euo pipefail
+
+SITE="${1:?usage: triage-tick <site>   (e.g. triage-tick server)}"; shift
+[ "${1:-}" = "--" ] && shift   # allow an optional `--` separator before extra daemon args
+
+ENV_FILE="${CONTAINER_ENV_FILE:-$HOME/.claude-triage/container.env}"
+[ -f "$ENV_FILE" ] || { echo "FATAL: env file not found: $ENV_FILE" >&2; exit 1; }
+# Load host paths (ROUTING_CONFIG, CLAUDE_SKILLS_DIR) + tuning. Secrets stay in-process, never echoed.
+set -a; . "$ENV_FILE"; set +a
+
+CFG="${ROUTING_CONFIG:?ROUTING_CONFIG must be set in $ENV_FILE}"
+[ -f "$CFG" ] || { echo "FATAL: routing config not found: $CFG" >&2; exit 1; }
+BASE="${CLAUDE_SKILLS_DIR:?CLAUDE_SKILLS_DIR must be set in $ENV_FILE}/triage/docker-compose.yml"
+[ -f "$BASE" ] || { echo "FATAL: base compose not found: $BASE" >&2; exit 1; }
+command -v jq >/dev/null 2>&1 || { echo "FATAL: jq is required on the host" >&2; exit 1; }
+
+# Which services this site needs, and the endpoint env to inject into the triage container.
+svcs=$(jq -r --arg s "$SITE" '.routing.map[$s].sidecars // [] | join(" ")' "$CFG")
+envargs=()   # -> (-e KEY=VAL -e KEY=VAL …)   (bash-3.2 safe: no mapfile)
+while IFS= read -r kv; do
+  [ -n "$kv" ] && envargs+=(-e "$kv")
+done < <(jq -r --arg s "$SITE" '.routing.map[$s].sidecarEnv // {} | to_entries[] | "\(.key)=\(.value)"' "$CFG")
+
+# Materialize the sidecar compose fragment host-side (the config carries valid compose under
+# .sidecars.services). Ephemeral by construction: services declare tmpfs / no named volumes.
+TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
+SIDECARS="$TMP/docker-compose.sidecars.yml"
+jq '{services: (.sidecars.services // {}), networks: {triagenet: {}}}' "$CFG" > "$SIDECARS"
+
+export TRIAGE_ONLY_SITES="$SITE"   # the daemon claims only this site's tickets this tick
+# Pin the scope on the container directly with `run -e`. Relying on the exported var reaching the
+# compose `environment:` interpolation is NOT reliable — a non-empty TRIAGE_ONLY_SITES in the
+# --env-file (e.g. a leftover `=site-a` first-run pin) can win, silently scoping every tick to that
+# site. `run -e` overrides both the env-file and the service's environment block, unconditionally.
+SCOPE=(-e "TRIAGE_ONLY_SITES=$SITE")
+
+if [ -n "$svcs" ]; then
+  echo "triage-tick: $SITE → sidecars: $svcs"
+  DC=(docker compose --env-file "$ENV_FILE" -f "$BASE" -f "$SIDECARS")
+  # shellcheck disable=SC2086
+  "${DC[@]}" up -d --force-recreate $svcs
+  "${DC[@]}" run --rm --use-aliases "${SCOPE[@]}" ${envargs[@]+"${envargs[@]}"} triage tick "$@"
+  "${DC[@]}" down
+else
+  echo "triage-tick: $SITE → no sidecars"
+  docker compose --env-file "$ENV_FILE" -f "$BASE" run --rm "${SCOPE[@]}" triage tick "$@"
+fi

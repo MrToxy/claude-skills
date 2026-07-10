@@ -1,0 +1,37 @@
+{
+  "_comment": "EXAMPLE — copy to $CLAUDE_TRIAGE_DIR/daemon.config.json and replace __PROJECT_ROOT__ with your project path (add more projects as needed). NOTE: per-project routing (repos/branches/labels) lives in <project>/.claude/auto-triage.config.json, NOT here — so this file carries no repo names. budget gates on the live 5h rolling-window %; the daemon fans out one `claude -p /triage <ticket>` per claimable ticket.",
+
+  "models": {
+    "_comment": "Right model per phase. `orchestrator` runs the cheap mechanical polls that fire EVERY tick for EVERY project regardless of ticket volume — `/triage --list` (discovery), `/triage-cleanup` (reaper), `/triage-block` (mark) — so it dominates idle cost; keep it small. `write` runs `/triage <ID>` (route + plan-with-docs + TDD implement + gates + verifier — its subagents inherit this model), so it carries the real engineering: keep it strong. Aliases track the latest of each tier (opus→4.8, haiku→4.5). A project may override `write` with its own `model` key below.",
+    "write": "opus",
+    "orchestrator": "haiku"
+  },
+
+  "budget": {
+    "_comment": "Primary budget is USAGE (subscription): hold new work when the live 5h rolling-window is >= maxFiveHourPercent. The *MaxUsd values are NOT the budget — they're per-run runaway safety caps (Claude Code's only native per-call limit is --max-budget-usd); sized generously so cold-start cache cost can't false-trip them.",
+    "maxFiveHourPercent": 40,
+    "holdIfUsageUnknown": true,
+    "perTicketMaxUsd": 10.0,
+    "listMaxUsd": 2.0,
+    "reapMaxUsd": 2.0
+  },
+
+  "limits": {
+    "maxParallelTickets": 3,
+    "maxTicketMinutes": 30
+  },
+
+  "reaper": {
+    "enabled": true,
+    "stuckAfterMinutes": 60
+  },
+
+  "projects": [
+    {
+      "name": "myproject",
+      "root": "__PROJECT_ROOT__",
+      "enabled": true,
+      "_model": "OPTIONAL per-project override of models.write (the `/triage <ID>` engineering model). Omit to inherit models.write."
+    }
+  ]
+}

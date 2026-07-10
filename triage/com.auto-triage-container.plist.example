@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- EXAMPLE — CONTAINER scheduler (supersedes com.auto-triage.plist, the legacy Mac-local runner).
+     Copy to ~/Library/LaunchAgents/, then replace:
+       __SKILLS__  → your claude-skills dir (the CLAUDE_SKILLS_DIR set in ~/.claude-triage/container.env)
+       __HOME__    → your home dir (echo $HOME)
+     Fires `triage-all` every 15 min — it runs one per-site tick for each site in the routing map,
+     provisioning ONLY each site's sidecars. `triage-all`'s mkdir-lock prevents overlap if a tick runs
+     long. REQUIRES Docker Desktop to be running. Load: `launchctl load ~/Library/LaunchAgents/com.auto-triage-container.plist`.
+
+     macOS TCC GOTCHA: if the skills repo (or the routing config) lives under ~/Documents, launchd's
+     /bin/bash cannot read it ("Operation not permitted", exit 126) — background items get no TCC grant.
+     Route through the FDA-granted launcher binary instead (same trick as the legacy Mac plist):
+       ProgramArguments → __HOME__/.claude-triage/auto-triage-launcher (no bash line)
+       CLAUDE_TRIAGE_DIR → __HOME__/.claude-triage/container-sched
+     and put a shim at container-sched/auto-triage-daemon.sh that resets CLAUDE_TRIAGE_DIR to
+     ~/.claude-triage and `exec /bin/bash "$CLAUDE_SKILLS_DIR/triage/triage-all"` (read the path from
+     container.env). Descendants inherit the launcher's Full Disk Access, so triage-all/jq/docker can
+     read Documents. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.auto-triage-container</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__SKILLS__/triage/triage-all</string>
+  </array>
+
+  <key>StartInterval</key>
+  <integer>900</integer>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <!-- Docker Desktop puts `docker` in /usr/local/bin (Intel) or /opt/homebrew/bin (Apple Silicon). -->
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    <key>CLAUDE_TRIAGE_DIR</key>
+    <string>__HOME__/.claude-triage</string>
+  </dict>
+
+  <key>StandardOutPath</key>
+  <string>__HOME__/.claude-triage/logs/scheduler.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__HOME__/.claude-triage/logs/scheduler.err.log</string>
+
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>
