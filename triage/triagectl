@@ -9,32 +9,96 @@
 #   triagectl budget [pct]           show or set the 5h-window hold threshold (e.g. budget 80)
 #   triagectl run [--force]          run one tick now (foreground); --force bypasses the budget gate
 #   triagectl watch [ticket]         live-tail a running ticket's agent transcript (or the latest)
+#   triagectl session [ticket]       print the full Claude session transcript for a ticket's latest run
+#
+# State source: when the containerized path is active, the daemon writes its state, control, and
+# session transcripts into the Docker volume $TRIAGE_STATE_VOLUME (default auto-triage_triage-state),
+# NOT into the host ~/.claude-triage. On Docker Desktop that volume lives inside the Linux VM with no
+# host path, so this tool reaches it through a throwaway helper container ($TRIAGE_HELPER_IMG, default
+# alpine:latest). If the volume isn't present it falls back to the host dir (the legacy Mac path).
+# Force host mode with TRIAGE_STATE_VOLUME= (empty).
 set -uo pipefail
 DAEMON_DIR="${CLAUDE_TRIAGE_DIR:-$HOME/.claude-triage}"
 CONTROL="$DAEMON_DIR/control.json"
 STATE="$DAEMON_DIR/state.json"
 CFG="$DAEMON_DIR/daemon.config.json"
-[ -f "$CONTROL" ] || printf '%s' '{"paused":false,"pausedProjects":[],"abandon":[]}' > "$CONTROL"
-set_ctl(){ local v; v=$(jq "$1" "$CONTROL" 2>/dev/null) && [ -n "$v" ] && { printf '%s' "$v" > "$CONTROL.tmp" && mv "$CONTROL.tmp" "$CONTROL"; }; }
+VOL="${TRIAGE_STATE_VOLUME-auto-triage_triage-state}"
+HELPER_IMG="${TRIAGE_HELPER_IMG:-alpine:latest}"
+
+# ── state source: container volume (active path) or host dir (legacy) ──────────────────────────
+CMODE=0
+if [ -n "$VOL" ] && command -v docker >/dev/null 2>&1 && docker volume inspect "$VOL" >/dev/null 2>&1; then
+  CMODE=1
+fi
+vol_cat(){ docker run --rm -v "$VOL":/s "$HELPER_IMG" cat "/s/$1" 2>/dev/null; }        # read one file from the volume
+vol_write(){ docker run --rm -i -v "$VOL":/s "$HELPER_IMG" sh -c "cat > /s/$1"; }         # stdin → file in the volume
+vol_sh(){ docker run --rm -v "$VOL":/s "$HELPER_IMG" sh -c "$1" 2>/dev/null; }            # arbitrary read in the volume
+read_json(){ if [ "$CMODE" = 1 ]; then vol_cat "$1"; else cat "$DAEMON_DIR/$1" 2>/dev/null; fi; }   # $1 = basename
+
+# write a control.json / daemon.config.json transform back to the active source. $1=basename $2=jq-expr
+put_json(){
+  local cur new; cur=$(read_json "$1"); [ -n "$cur" ] || return 1
+  new=$(printf '%s' "$cur" | jq "$2" 2>/dev/null) && [ -n "$new" ] || return 1
+  if [ "$CMODE" = 1 ]; then printf '%s' "$new" | vol_write "$1"
+  else printf '%s' "$new" > "$DAEMON_DIR/$1.tmp" && mv "$DAEMON_DIR/$1.tmp" "$DAEMON_DIR/$1"; fi
+}
+set_ctl(){ # $1 = jq expr over control.json; seeds an empty control if none exists
+  if [ "$CMODE" = 0 ] && [ ! -f "$CONTROL" ]; then
+    printf '%s' '{"paused":false,"pausedProjects":[],"abandon":[]}' > "$CONTROL"
+  fi
+  put_json control.json "$1"
+}
+
+# transcript pretty-printers (shared by watch/session)
+FMT_LIVE='select(.type=="assistant") | .message.content[]? |
+  if .type=="text" then "💬 "+.text
+  elif .type=="tool_use" then "→ "+.name+"  "+((.input.command//.input.file_path//.input.description//.input.prompt//"")|tostring|.[0:90])
+  else empty end'
+FMT_FULL='
+  if .type=="assistant" then (.message.content[]? |
+      if .type=="text" then "💬 "+(.text|.[0:400])
+      elif .type=="tool_use" then "→ "+.name+"  "+((.input.command//.input.file_path//.input.description//.input.prompt//(.input|tostring))|tostring|.[0:120])
+      else empty end)
+  elif .type=="user" then (.message.content? |
+      if type=="string" then "🧑 "+(.|.[0:200])
+      elif type=="array" then (.[]? |
+          if .type=="tool_result" then "  ⤷ "+(( if (.content|type)=="array" then ([.content[]?|.text?]|map(select(.!=null))|join(" ")) else (.content|tostring) end)|gsub("\n";" ")|.[0:160])
+          elif .type=="text" then "🧑 "+(.text|.[0:200])
+          else empty end)
+      else empty end)
+  else empty end'
+
+# resolve the newest transcript file for a ticket (or newest overall). echoes a path; /s/... in CMODE.
+resolve_transcript(){ # $1 = ticket or ""
+  if [ "$CMODE" = 1 ]; then
+    if [ -n "$1" ]; then vol_sh "grep -l 'triage $1' /s/projects/*/*.jsonl 2>/dev/null | xargs -r ls -t 2>/dev/null | head -1"
+    else vol_sh "ls -t /s/projects/*/*.jsonl 2>/dev/null | head -1"; fi
+  else
+    if [ -n "$1" ]; then grep -l "triage $1" "$DAEMON_DIR/projects"/*/*.jsonl 2>/dev/null | xargs ls -t 2>/dev/null | head -1
+    else ls -t "$DAEMON_DIR/projects"/*/*.jsonl 2>/dev/null | head -1; fi
+  fi
+}
 
 cmd="${1:-status}"; arg="${2:-}"
 case "$cmd" in
   status)
     echo "═══ auto-triage ═══"
-    if [ -f "$STATE" ]; then
-      jq -r '"updated:  \(.updated)\npaused:   \(.paused)\n5h usage: \(.fiveHourPct // "?")%  (hold ≥ \(.thresholdPct)%)   ← the budget\ndaemon used (5h): \(.daemonTokens5h // 0) tok  (~$\(.daemonSpend5hUsd // 0))"' "$STATE" 2>/dev/null
+    if [ "$CMODE" = 1 ]; then echo "source:   container volume $VOL"; else echo "source:   host $DAEMON_DIR"; fi
+    st=$(read_json state.json)
+    if [ -n "$st" ]; then
+      printf '%s' "$st" | jq -r '"updated:  \(.updated)\npaused:   \(.paused)\n5h usage: \(.fiveHourPct // "?")%  (hold ≥ \(.thresholdPct)%)   ← the budget\ndaemon used (5h): \(.daemonTokens5h // 0) tok  (~$\(.daemonSpend5hUsd // 0))"' 2>/dev/null
       echo "─ running ─"
-      jq -r '(.running // []) | if length==0 then "  (idle)" else (.[] | "  • \(.ticket // "?")  (\(.project))  pid \(.pid)  \(.elapsedSec)s") end' "$STATE" 2>/dev/null
+      printf '%s' "$st" | jq -r '(.running // []) | if length==0 then "  (idle)" else (.[] | "  • \(.ticket // "?")  (\(.project))  pid \(.pid)  \(.elapsedSec)s") end' 2>/dev/null
       echo "─ recent ─"
-      jq -r '(.recent // []) | if length==0 then "  (none)" else (.[] | "  • \(.ts)  \(.ticket // .project)  \(.tokens // 0)tok  \(if .blocked then "BLOCKED" elif .is_error then "ERR" else "ok" end)  \(.result[0:68])") end' "$STATE" 2>/dev/null
+      printf '%s' "$st" | jq -r '(.recent // []) | if length==0 then "  (none)" else (.[] | "  • \(.ts)  \(.ticket // .project)  \(.tokens // 0)tok  \(if .blocked then "BLOCKED" elif .is_error then "ERR" else "ok" end)  \(.result[0:68])") end' 2>/dev/null
     else
       echo "(no state yet — daemon hasn't run)"
     fi
     echo "─ control ─"
-    jq -r '"  paused: \(.paused)\n  pausedProjects: \((.pausedProjects // [])|join(", "))\n  abandon: \((.abandon // [])|join(", "))"' "$CONTROL" 2>/dev/null
+    printf '%s' "$(read_json control.json)" | jq -r '"  paused: \(.paused)\n  pausedProjects: \((.pausedProjects // [])|join(", "))\n  abandon: \((.abandon // [])|join(", "))"' 2>/dev/null || echo "  (none)"
     ;;
   pause)
-    if [ -n "$arg" ]; then set_ctl "(.pausedProjects // []) |= (. + [\"$arg\"] | unique) | ."; set_ctl ".pausedProjects = (.pausedProjects | unique)"; echo "paused project: $arg";
+    if [ -n "$arg" ]; then set_ctl "(.pausedProjects // []) |= (. + [\"$arg\"] | unique)"; echo "paused project: $arg";
     else set_ctl ".paused = true"; echo "paused (all)"; fi ;;
   resume)
     if [ -n "$arg" ]; then set_ctl "(.pausedProjects // []) -= [\"$arg\"]"; echo "resumed project: $arg";
@@ -46,30 +110,55 @@ case "$cmd" in
     set_ctl ".abandon = []"; echo "cleared abandon list" ;;
   stop)
     set_ctl ".paused = true"
-    if [ -f "$STATE" ]; then
-      for pid in $(jq -r '(.running // [])[].pid' "$STATE" 2>/dev/null); do kill "$pid" 2>/dev/null && echo "killed $pid"; done
-    fi
-    echo "stopped (paused + killed running)" ;;
+    st=$(read_json state.json)
+    if [ "$CMODE" = 1 ]; then
+      tks=$(printf '%s' "$st" | jq -r '(.running // [])[].ticket' 2>/dev/null)
+      for t in $tks; do set_ctl "(.abandon // []) |= (. + [\"$t\"] | unique)"; done
+      echo "stopped (paused; abandoning ${tks:-nothing} — the container tick reaps within ~5s)"
+    else
+      for pid in $(printf '%s' "$st" | jq -r '(.running // [])[].pid' 2>/dev/null); do kill "$pid" 2>/dev/null && echo "killed $pid"; done
+      echo "stopped (paused + killed running)"
+    fi ;;
   budget)
-    [ -f "$CFG" ] || { echo "no daemon.config.json"; exit 1; }
-    if [ -z "$arg" ]; then echo "5h hold threshold: $(jq -r '.budget.maxFiveHourPercent' "$CFG")%"; exit 0; fi
-    v=$(jq --argjson p "$arg" '.budget.maxFiveHourPercent=$p' "$CFG") && printf '%s' "$v" > "$CFG.tmp" && mv "$CFG.tmp" "$CFG"
-    echo "5h hold threshold set to $arg%" ;;
+    cfg=$(read_json daemon.config.json); [ -n "$cfg" ] || { echo "no daemon.config.json"; exit 1; }
+    if [ -z "$arg" ]; then printf '%s' "$cfg" | jq -r '"5h hold threshold: \(.budget.maxFiveHourPercent)%"'; exit 0; fi
+    if [ "$CMODE" = 1 ]; then
+      echo "container mode: daemon.config.json is regenerated from daemon.config.example.json every tick,"
+      echo "so a live budget change won't stick. Set it in the container config instead:"
+      echo "  triage/daemon.config.example.json → budget.maxFiveHourPercent   (or the ledger USD cap in container.env)"
+      exit 1
+    fi
+    put_json daemon.config.json ".budget.maxFiveHourPercent=$arg" && echo "5h hold threshold set to $arg%" ;;
   run)
+    if [ "$CMODE" = 1 ]; then
+      echo "container mode: run a tick from the triage repo dir, not here —"
+      echo "  ./triage-all              # all sites"
+      echo "  ./triage-tick <site>      # one site (e.g. hpabo)"
+      exit 1
+    fi
     exec "$DAEMON_DIR/auto-triage-daemon.sh" "${@:2}" ;;
   watch)
-    PROJ="$DAEMON_DIR/projects"
-    if [ -n "$arg" ]; then
-      F=$(grep -l "/triage $arg" "$PROJ"/*/*.jsonl 2>/dev/null | xargs ls -t 2>/dev/null | head -1)
-    else
-      F=$(ls -t "$PROJ"/*/*.jsonl 2>/dev/null | head -1)
-    fi
+    F=$(resolve_transcript "$arg")
     [ -n "$F" ] || { echo "no session transcript found${arg:+ for $arg}"; exit 1; }
-    echo "▶ watching ${arg:-latest session}  (Ctrl-C to stop — does not affect the run)"
-    tail -f "$F" | jq -rc 'select(.type=="assistant") | .message.content[]? |
-      if .type=="text" then "💬 "+.text
-      elif .type=="tool_use" then "→ "+.name+"  "+((.input.command//.input.file_path//.input.description//.input.prompt//"")|tostring|.[0:90])
-      else empty end' 2>/dev/null ;;
+    echo "▶ watching ${arg:-latest session}  ($F)  (Ctrl-C to stop — does not affect the run)"
+    if [ "$CMODE" = 1 ]; then
+      docker run --rm -v "$VOL":/s "$HELPER_IMG" tail -f "$F"
+    else
+      tail -f "$F"
+    fi | jq --unbuffered -rc "$FMT_LIVE" 2>/dev/null ;;
+  session)
+    F=$(resolve_transcript "$arg")
+    [ -n "$F" ] || { echo "no session transcript found${arg:+ for $arg}"; exit 1; }
+    echo "═══ session ${arg:-latest} ═══"
+    echo "file: $F"
+    printf '%s' "$(read_json state.json)" | jq -r --arg t "${arg:-}" \
+      '(.recent // []) | map(select($t=="" or .ticket==$t)) | .[0] | select(.!=null)
+       | "outcome: \(.ts)  \(if .blocked then "BLOCKED" elif .is_error then "ERR" else "ok" end)  $\(.cost_usd // 0)  \(.tokens // 0)tok"' 2>/dev/null
+    echo "─────"
+    if [ "$CMODE" = 1 ]; then vol_cat "${F#/s/}"; else cat "$F"; fi | jq -rc "$FMT_FULL" 2>/dev/null
+    echo "─────"
+    if [ "$CMODE" = 1 ]; then echo "raw dump:  docker run --rm -v $VOL:/s $HELPER_IMG cat $F";
+    else echo "raw dump:  cat $F"; fi ;;
   *)
-    echo "usage: triagectl status|pause [project]|resume [project]|abandon <ticket|project>|clear-abandon|stop|budget [pct]|run [--force]|watch [ticket]" ;;
+    echo "usage: triagectl status|pause [project]|resume [project]|abandon <ticket|project>|clear-abandon|stop|budget [pct]|run [--force]|watch [ticket]|session [ticket]" ;;
 esac

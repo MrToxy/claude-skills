@@ -100,11 +100,18 @@ launchctl list | grep com.auto-triage
 ## Operate
 ```sh
 triagectl status            # running tickets + live 5h gauge + 5h spend + recent
+triagectl session [ticket]  # full Claude transcript of a ticket's latest run (or the latest session)
+triagectl watch [ticket]    # live-tail a running ticket's agent transcript
 triagectl pause [project]   # hold all new ticks (or one project); in-flight continues
 triagectl abandon <ticket>  # kill that ticket's run now
 triagectl stop              # pause + kill everything running
 triagectl resume [project]
 ```
+**State source.** On the container path the daemon writes state, control, and session transcripts into
+the Docker volume `auto-triage_triage-state` (inside Docker Desktop's VM — no host path), so `triagectl`
+reaches them via a throwaway `alpine` helper and `status` prints `source: container volume …`. It falls
+back to host `~/.claude-triage` (the legacy Mac path) when the volume is absent; force host mode with
+`TRIAGE_STATE_VOLUME=` (empty). Override the volume/helper with `TRIAGE_STATE_VOLUME` / `TRIAGE_HELPER_IMG`.
 
 ## Tune (no code changes) — `~/.claude-triage/daemon.config.json`
 `budget.maxFiveHourPercent` (40) · `budget.perTicketMaxUsd` (4) · `limits.maxParallelTickets` (3)
