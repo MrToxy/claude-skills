@@ -1,89 +1,102 @@
 # Probing Guide
 
-Seven dimensions to explore during Phase 2 of the PRD design process. Probe in this priority order. Ask at most 3 questions per message. Stop when Problem + Users + Goals are covered, or when the user says they're done.
+Eight dimensions to explore during Phase 2 of the PRD design process. Probe in this priority order. Ask at most 3 questions per message. Stop when Problem + Users + Goals + at least one Acceptance Criterion are covered, or when the user says they're done.
+
+Keep every question about the **what, who, and why** — never the how. If the user volunteers implementation detail (architecture, tech stack, data models, APIs), acknowledge it, park it for the planning phase, and steer back to the product question. The PRD draws the perimeter; planning fills it in.
 
 Label each message with the dimension(s) being explored, e.g.: `[Probing: Problem → Users]`
 
 ---
 
-## 1. Problem
+## 1. Problem ("why")
 
-Understand the pain before the solution. The strongest PRDs start with a crisp problem statement.
+Understand the pain before any solution. The strongest PRDs start with a crisp, single problem statement backed by evidence.
 
 Example questions:
 - What breaks or becomes harder without this feature?
-- How does the person affected currently work around this?
+- How does the affected person work around this today?
 - How often does this pain occur, and for how many people?
-- What triggered this idea — a user complaint, an observed pattern, a competitor feature?
+- What evidence tells us this is real — a complaint, a ticket trend, usage data, a competitor move?
+- Solution-bias check: is there more than one way to solve this? (If only one, the problem may be a disguised solution — reframe it.)
 
 ---
 
-## 2. Users
+## 2. Users ("who")
 
-Identify who is directly and indirectly affected. Avoid assuming a single persona.
+Identify who has the problem. There is one primary user; resist "everyone".
 
 Example questions:
-- Who is the primary person experiencing this problem?
-- Are there secondary users or admins affected by this change?
-- Is this a power-user feature or something every user needs?
-- What does this user already know or have access to?
+- Who is the single primary person experiencing this problem?
+- When do they hit it — what situation or job are they trying to get done?
+- Are there secondary or affected users whose needs change the requirements?
+- Is this a power-user need or something every user shares?
 
 ---
 
 ## 3. Goals
 
-Define what success looks like. Goals should be measurable and tied to the problem.
+Define the outcome. Goals are measurable changes in behavior, not features.
 
 Example questions:
-- What does "done" look like for the user — what can they do that they can't today?
-- Is there a quantitative target (e.g., reduce time, increase conversion, reduce errors)?
-- What's the single most important outcome if you had to pick one?
-- Are these goals team-level (product metrics) or user-level (UX outcomes)?
+- What can the user do after this that they can't today?
+- Is there a quantitative target (reduce time, increase conversion, cut errors)?
+- If you had to pick one outcome that matters most, which is it?
+- Is each goal an outcome, or is it secretly a feature in disguise?
 
 ---
 
-## 4. Scope
+## 4. Non-Goals
 
-Draw the boundary. What's in and what's explicitly out?
+Draw what's deliberately excluded. Each exclusion needs a reason.
 
 Example questions:
-- Is there a simpler version of this that delivers most of the value?
-- What would a V1 include vs. what could ship in V2?
-- Are there adjacent features that should be excluded to keep this focused?
+- What might people assume is included that you want to explicitly rule out?
+- For each exclusion: is it "not now" (a future release) or "never" (out of mission)?
+- What adjacent feature should be excluded to keep this focused?
+
+---
+
+## 5. Acceptance Criteria
+
+Define how "done" is proven. Criteria must be testable, binary, and outcome-oriented.
+
+Example questions:
+- For the main story, what observable result proves it works?
+- What are the edge cases or boundaries, and what should happen at each?
+- Is each criterion something a tester could mark pass/fail without judgement?
+- Would Given/When/Then or a simple rules checklist fit this flow better?
+
+---
+
+## 6. Scope
+
+Draw the boundary for this release at the level of "what", not "how".
+
+Example questions:
+- Is there a simpler version that delivers most of the value?
+- What's in for this release vs. explicitly out?
 - Is there existing functionality this replaces or extends?
 
 ---
 
-## 5. Constraints
+## 7. Constraints & Dependencies
 
-Identify real-world limits: time, tech, legal, organizational.
+Surface real-world limits and reliances — without designing the solution.
 
 Example questions:
-- Are there technical constraints — API limits, platform restrictions, legacy systems?
-- Is there a deadline or hard dependency on another team's work?
 - Are there legal, compliance, or accessibility requirements?
-- What's the budget or engineering capacity available?
+- Is there a hard deadline or a dependency on another team's work?
+- Are there platform or policy limits that constrain what's acceptable?
+- (Park any architecture/tech-stack detail for planning — note it as an Open Question.)
 
 ---
 
-## 6. Risks
+## 8. Risks & Prior Art
 
-Surface what could go wrong. Risks that aren't named can't be mitigated.
-
-Example questions:
-- What's the most likely way this feature fails after launch?
-- Are there dependencies on external systems or third-party services?
-- Could this feature negatively affect any existing users or flows?
-- What's the rollback plan if something goes wrong?
-
----
-
-## 7. Prior Art
-
-Learn from what already exists. Avoid re-solving solved problems.
+Surface what could make this fail to deliver its outcome, and learn from what exists.
 
 Example questions:
-- Has this been tried before in this codebase or at this company?
-- Are there competitor or industry examples of this feature?
-- Is there internal documentation, a past PRD, or a relevant ticket?
-- What worked and what didn't in prior attempts?
+- What's the most likely way this fails to get adopted or used after launch?
+- Could this negatively affect existing users or flows?
+- Has this been tried before here, or by a competitor — what worked and what didn't?
+- Is there a past PRD, ticket, or doc to build on?
