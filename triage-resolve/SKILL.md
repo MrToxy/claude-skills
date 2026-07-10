@@ -40,9 +40,16 @@ self-heal, then create fresh:
 - `git -C <localCheckout> branch -D <branchName> 2>/dev/null`  (the branch may already exist)
 - `git -C <localCheckout> worktree add ../.worktrees/<id>-<site> -b <branchName> <base>`
 Never work in the live checkout; never commit to `base`. Remove the worktree on completion.
+> **`localCheckout` may be a *bare* repo** — object store only, no working tree at its root (the
+> container clones bare to skip a redundant base checkout). So do **everything inside the worktree**
+> at `../.worktrees/<id>-<site>`: all reads (`AGENTS.md`/`CLAUDE.md`/`cloud.md`/`package.json`/source),
+> dependency install (`npm ci`), the verification loop, `git add`/`commit`, `git push origin
+> <branchName>`, and `gh pr create`. Never read from, install into, or run commands at the
+> `localCheckout` root — a bare checkout has nothing there. (`git -C <localCheckout> worktree …` in
+> step 1 is fine — those are object-store ops, not working-tree reads.)
 
 ### 2. Implement — Agent A (general-purpose subagent)
-1. Read the repo's conventions first (`AGENTS.md`, `CLAUDE.md`, `cloud.md`, `README`).
+1. Read the repo's conventions first (`AGENTS.md`, `CLAUDE.md`, `cloud.md`, `README`) — from inside the worktree.
 2. `plan-with-docs` — self-driven; document assumptions. The plan MUST emit an explicit,
    testable **Acceptance Criteria** checklist — the rubric the verifier judges against.
 3. Implement with **TDD**.
@@ -59,7 +66,7 @@ Never work in the live checkout; never commit to `base`. Remove the worktree on 
    Android emulator needs nested virt) — that is **not** `blocked` (the rest still verifies) and
    **not** a silent pass. Detect the tool's absence (`maestro` / `xcodebuild` / emulator), classify it
    a **device/sim check**, and route it to the hand-off in step 3 — never crash, never green it.
-5. Commit + push. Return `{ branch, ac, evidence, summary }`.
+5. Commit + push (from the worktree; `git push origin <branchName>`). Return `{ branch, ac, evidence, summary }`.
 6. **Cannot proceed?** A tool denied by permissions, a missing/broken tool, or any error you cannot
    overcome → **STOP**. Do not ask interactively, do not destructively work around the denial, do
    not commit a half-change. Abort this target with `blocked: { reason }` (quote the exact denial/
@@ -78,6 +85,11 @@ pipeline-owned and run regardless of what the repo declares:
   move the pixels that matter**: capture before (base) vs after (branch) screenshots and confirm the
   symptom resolved. A change that doesn't visibly alter the symptom **FAILS this gate → no PR**.
   Fold the symptom into the Acceptance Criteria as an observable check at the reported resolution.
+  **Browser source:** if `$AGENT_BROWSER_CDP_URL` is set (the containerized runner attaches to a
+  headless-Chrome **sidecar** over remote CDP), first `agent-browser connect "$AGENT_BROWSER_CDP_URL"`,
+  and serve the app bound to `0.0.0.0` (e.g. `next dev -H 0.0.0.0`) so the sidecar reaches it at
+  `http://triage:<port>`. If it's unset (local Mac), agent-browser launches Chrome itself — the
+  snapshot/screenshot commands are identical after that.
 - **Touches code/logic** → run **`/simplify`** (the code-simplifier) on the change, then
   **`/code-review`**, and resolve their findings before proceeding.
 - **Needs a device/sim this runner can't provide** (diff touches `ios/`, `android/`,
