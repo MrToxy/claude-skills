@@ -92,9 +92,11 @@ launchctl list | grep com.auto-triage
 
 ## How a tick works (per-ticket fan-out)
 1. budget gate on the live 5h % (hold if ≥ `maxFiveHourPercent`).
-2. `/triage --list` per project → claimable ticket IDs (cheap, read-only).
-3. fan out one `claude -p /triage <ID>` per ticket, up to `maxParallelTickets`; each capped by
-   `perTicketMaxUsd` and **killed past `maxTicketMinutes`**.
+2. `/triage --list` per project → claimable tickets as `{id,sites}` (cheap, read-only). The daemon
+   then deterministically drops any ticket whose `sites` don't intersect `TRIAGE_ONLY_SITES` (empty =
+   all), so a per-site tick never spawns a costly `/triage <ID>` run just to scope-skip another site.
+3. fan out one `claude -p /triage <ID>` per **in-scope** ticket, up to `maxParallelTickets`; each capped
+   by `perTicketMaxUsd` and **killed past `maxTicketMinutes`**.
 4. `/triage-cleanup <stuckAfterMinutes>` → return crashed/killed claims to the queue.
 
 ## Operate
@@ -132,7 +134,9 @@ Aliases track the latest of each tier (`opus`→4.8, `haiku`→4.5). The contain
 live, so a model change lands next tick — no image rebuild.
 
 **If Haiku mis-classifies on `--list`** (wraps the JSON array in prose, or misjudges claimability),
-bump `models.orchestrator` to `sonnet` — still far cheaper than Opus on those polls.
+bump `models.orchestrator` to `sonnet` — still far cheaper than Opus on those polls. Note site-scope
+is NOT a Haiku judgment: `--list` only *reports* each ticket's `sites`, and the daemon drops
+out-of-scope tickets deterministically — so a mis-scoped Haiku output can't waste a per-ticket run.
 
 **Possible future tier — `models.verify` (NOT wired yet).** The `triage-verifier` agent (re-runs the
 repo's tests + gates, judges each AC) currently inherits `models.write` (Opus) on every ticket. It's

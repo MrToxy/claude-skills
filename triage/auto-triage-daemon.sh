@@ -159,13 +159,27 @@ for ((p=0; p<PROJ_COUNT; p++)); do
   [ -d "$root" ] || { dlog "missing root $name: $root"; continue; }
   lout="$LOGDIR/${name}.list.json"
   run_claude "$root" "/triage --list" "$CHEAP_MODEL" "$LIST_USD" "$lout" "$LOGDIR/${name}.err"
-  ids=$(result_json "$lout" | jq -r '.[]?' 2>/dev/null)
+  # `--list` reports EVERY claimable ticket as {id,sites}; the site-scope DROP is deterministic HERE
+  # (not trusted to the cheap model) so an out-of-scope ticket never spawns a costly per-ticket run
+  # just to scope-skip. Keep a ticket iff TRIAGE_ONLY_SITES is empty, or its sites intersect it.
+  # Fail-safe: unknown/empty `sites` (e.g. the model regressed to bare IDs) is KEPT — the per-ticket
+  # CLAIM gate still scope-skips it, so a site is never silently starved of work.
+  only_arr=$(printf '%s' "${TRIAGE_ONLY_SITES:-}" | tr ', ' '\n' | jq -R . | jq -sc 'map(select(length>0))')
+  listjson=$(result_json "$lout")
+  ids=$(printf '%s' "$listjson" | jq -r --argjson only "$only_arr" '
+    (.[]? | if type=="object" then . else {id:., sites:null} end) as $t
+    | if ($only|length)==0 then $t.id
+      elif ($t.sites==null or ($t.sites|length)==0) then $t.id
+      elif ($t.sites | any(. as $s | $only|index($s))) then $t.id
+      else empty end' 2>/dev/null)
+  total=$(printf '%s' "$listjson" | jq -r '[.[]?]|length' 2>/dev/null); [ -z "$total" ] && total=0
   cnt=0
   for id in $ids; do
     Q_PROJ[$n]="$name"; Q_ROOT[$n]="$root"; Q_MODEL[$n]="$wmodel"; Q_TICKET[$n]="$id"
     JST[$n]=0; n=$((n+1)); cnt=$((cnt+1))
   done
-  dlog "$name: $cnt claimable"
+  if [ -n "${TRIAGE_ONLY_SITES:-}" ]; then dlog "$name: $cnt claimable in scope [$TRIAGE_ONLY_SITES] ($total reported)"
+  else dlog "$name: $cnt claimable"; fi
 done
 
 if [ "$n" -eq 0 ]; then

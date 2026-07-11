@@ -49,7 +49,10 @@ one `triage <ID>` per ticket in parallel, then runs the separate `triage-cleanup
 unstick anything that died. The modes:
 
 - **`triage --list`** — *read-only discovery*. Output **only** a raw JSON array of claimable
-  ticket IDs starting with `[` — **no prose, no markdown code fences** — e.g. `["ABC-552","ABC-645"]`.
+  tickets starting with `[` — **no prose, no markdown code fences** — each an object `{"id","sites"}`,
+  e.g. `[{"id":"ABC-552","sites":["server"]},{"id":"ABC-645","sites":["site-a"]}]`. `sites` = the
+  routing site keys the ticket maps to (its site labels ∩ `routing.siteLabels`; single-repo `default`
+  mode → `["default"]`; a ticket routing to ≥2 same-repo sites lists them all).
   Claimable = `QUEUED`,
   carries a routing site label (label-gated mode) or single-repo `default`, has no open auto
   PR/branch for its id, and does **not** carry the `triage-blocked` label. **State is the source of
@@ -57,10 +60,10 @@ unstick anything that died. The modes:
   from a prior run that crashed and was re-queued; do NOT exclude on marker presence. The one
   exception is `triage-blocked`: that label means a human must intervene before a retry, so exclude
   it (a human clears the label to re-enable the ticket). **Claim or modify nothing.**
-  **Site scope:** if the `TRIAGE_ONLY_SITES` env var is set (comma-separated routing site keys, e.g.
-  `server` or `site-a,site-b`), a ticket is claimable ONLY if its routing site label(s) fall within that
-  set — the per-site runner (`triage-tick <site>`) has cloned just those checkouts and provisioned
-  just their sidecars this tick. Empty/unset → all sites (unchanged).
+  **Site scope is NOT decided here.** Report **every** claimable ticket regardless of
+  `TRIAGE_ONLY_SITES`, always populating `sites` — the daemon drops out-of-scope tickets
+  deterministically from that field (it does not trust the cheap model to filter). This run's job is
+  to *report* each ticket's sites, never to *decide* scope.
 - **`triage <ITEM-ID>`** — *one ticket through the whole pipeline* (the Procedure below). Claims
   it, decides, resolves or surfaces, opens a draft PR, syncs back. This is the unit the daemon
   fans out, and also the manual dry-run lever.
