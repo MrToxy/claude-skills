@@ -42,6 +42,21 @@ Interview one decision at a time; confirm before any mutation. Steps:
 - **Shape B**: single `default` target, `siteLabels: []`.
 - Set `kind` per target (`web` / `backend`); only `web` siblings participate in bug-spread.
 
+## 3b. Detect each target's verification environment → sidecars (container runner)
+For each target, inspect how its declared verification gets its infra, then emit `sidecars` +
+`sidecarEnv` from the **recipe catalog** in `config-schema.md` (read-only detection; show findings):
+- grep deps + test setup for **testcontainers** (`@testcontainers/*` / `testcontainers` in
+  `package.json`; `new *Container(` in a global-setup) → `dind` + `DOCKER_HOST`/`TESTCONTAINERS_*` env.
+  The repo runs its verification unchanged — no repo edits needed.
+- else grep for an **injected DB** the tests expect (`DB_HOST` reads + a compose/`.env` postgres, no
+  testcontainers) → `postgres` sidecar + `DB_*` env.
+- grep for **headless browser / e2e** (Playwright, `agent-browser`, a UI gate) → `browser` + CDP env.
+- **DynamoDB** (`dynamodb-local`, `DYNAMODB_ENDPOINT`) → `dynamodb` sidecar + endpoint env.
+- pure unit / no external infra → `sidecars: []`.
+Show the per-target services you'll add and confirm before writing (step 4). This is the piece that
+makes "onboard a repo → it declares its own provisioning" work; skip it and the Mac-local runner is
+unaffected (it ignores sidecars).
+
 ## 4. Write the config
 - Assemble per `config-schema.md`; default `claimMarker` `🤖 auto-triage`, `limits` `3/3/2`,
   `pr` all-true. **Show the full JSON and get explicit approval.**

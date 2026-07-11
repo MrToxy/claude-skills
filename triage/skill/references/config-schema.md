@@ -91,6 +91,24 @@ Per-site target fields (in `routing.map.<site>`):
   real secrets stay in the host `container.env` (never here).
 - Every service (and every `sidecarEnv` host) uses the `triagenet` network (the base compose defines it).
 
+### Recipe catalog — pick per target by how its verification gets its infra
+- **testcontainers** (dep `@testcontainers/*` or `testcontainers`; or a `new *Container(` call in a
+  vitest/jest global-setup) → the repo spins up its OWN containers, so it needs a Docker API, NOT a
+  bare service sidecar. Provision `dind` and inject `DOCKER_HOST` (validated: the server integration
+  suite runs 70 tests green with postgres:17 started *inside* dind):
+  ```
+  "dind": { "image": "docker:dind", "privileged": true, "environment": { "DOCKER_TLS_CERTDIR": "" }, "command": ["--host=tcp://0.0.0.0:2375"], "networks": ["triagenet"] }
+  sidecarEnv: { "DOCKER_HOST": "tcp://dind:2375", "TESTCONTAINERS_HOST_OVERRIDE": "dind", "TESTCONTAINERS_RYUK_DISABLED": "true" }
+  ```
+  The triage container still gets NO host docker socket — it talks to the ephemeral dind daemon over
+  TCP, and testcontainers pulls its images INSIDE dind (a per-tick pull cost; rootless-dind is an
+  untested hardening). `dind` and a bare service sidecar are **mutually exclusive** for one target:
+  dind = the repo starts its own containers; a bare sidecar = the repo connects to one we start.
+- **injected DB** (tests read `DB_HOST`/`DB_*` and do NOT use testcontainers) → `postgres` sidecar + `DB_*` env.
+- **headless browser** (Playwright / agent-browser / e2e UI gate) → `browser` sidecar + `AGENT_BROWSER_CDP_URL`.
+- **DynamoDB** (local dynamo in tests) → `dynamodb` sidecar + endpoint env.
+- **none** (pure unit tests / no external infra) → `sidecars: []`.
+
 ## Limits
 
 `{ maxIssuesPerTick, maxConcurrentSubagents, implementVerifyRetries }` — defaults
