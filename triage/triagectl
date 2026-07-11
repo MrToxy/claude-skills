@@ -79,11 +79,31 @@ resolve_transcript(){ # $1 = ticket or ""
   fi
 }
 
+# schedule: last/next launchd fire. Host-side (launchd + scheduler.out.log live on the Mac even when
+# state is in a container volume). `last` = scheduler.out.log mtime (touched every fire, success or not).
+schedule_line(){
+  local label plist log int last now next
+  if [ "$CMODE" = 1 ]; then label=com.auto-triage-container; else label=com.auto-triage; fi
+  plist="$HOME/Library/LaunchAgents/$label.plist"
+  [ -f "$plist" ] || { echo "  (no $label.plist — not scheduled)"; return; }
+  launchctl list 2>/dev/null | grep -q "$label" || { echo "  $label not loaded (disarmed)"; return; }
+  int=$(plutil -extract StartInterval raw "$plist" 2>/dev/null)
+  log="$DAEMON_DIR/logs/scheduler.out.log"; now=$(date +%s); last=""
+  [ -f "$log" ] && last=$(stat -f %m "$log" 2>/dev/null)
+  [ -n "$last" ] && printf "  last tick: %s (%dm ago)\n" "$(date -r "$last" -u +%H:%MZ)" "$(( (now-last)/60 ))"
+  if [ -n "$int" ] && [ -n "$last" ]; then
+    next=$((last+int))
+    if [ "$next" -le "$now" ]; then echo "  next tick: due now / in progress"
+    else printf "  next tick: in ~%dm  (every %dm)\n" "$(( (next-now+59)/60 ))" "$((int/60))"; fi
+  elif [ -n "$int" ]; then printf "  next tick: every %dm\n" "$((int/60))"; fi
+}
+
 cmd="${1:-status}"; arg="${2:-}"
 case "$cmd" in
   status)
     echo "═══ auto-triage ═══"
     if [ "$CMODE" = 1 ]; then echo "source:   container volume $VOL"; else echo "source:   host $DAEMON_DIR"; fi
+    echo "─ schedule ─"; schedule_line
     st=$(read_json state.json)
     if [ -n "$st" ]; then
       printf '%s' "$st" | jq -r '"updated:  \(.updated)\npaused:   \(.paused)\n5h usage: \(.fiveHourPct // "?")%  (hold ≥ \(.thresholdPct)%)   ← the budget\ndaemon used (5h): \(.daemonTokens5h // 0) tok  (~$\(.daemonSpend5hUsd // 0))"' 2>/dev/null
