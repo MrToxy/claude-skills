@@ -10,6 +10,7 @@
 #   triagectl run [--force]          run one tick now (foreground); --force bypasses the budget gate
 #   triagectl watch [ticket]         live-tail a running ticket's agent transcript (or the latest)
 #   triagectl session [ticket]       print the full Claude session transcript for a ticket's latest run
+#   triagectl up                     after a reboot/Docker restart: start Docker, arm launchd, tick now
 #
 # State source: when the containerized path is active, the daemon writes its state, control, and
 # session transcripts into the Docker volume $TRIAGE_STATE_VOLUME (default auto-triage_triage-state),
@@ -149,6 +150,35 @@ case "$cmd" in
       exit 1
     fi
     put_json daemon.config.json ".budget.maxFiveHourPercent=$arg" && echo "5h hold threshold set to $arg%" ;;
+  up)
+    # one command to bring the scheduler back after a reboot / Docker restart: ensure the Docker
+    # engine is up, arm the launchd agent, and fire a tick now. Idempotent — safe to run anytime;
+    # triage-all's mkdir-lock makes a double-fire a no-op.
+    label=com.auto-triage-container
+    plist="$HOME/Library/LaunchAgents/$label.plist"
+    [ -f "$plist" ] || { echo "✗ $plist missing — install it from triage/com.auto-triage-container.plist.example first"; exit 1; }
+    dom="gui/$(id -u)"
+    # 1 ─ Docker engine
+    if docker info >/dev/null 2>&1; then echo "✓ docker already up"; else
+      echo "• starting Docker Desktop…"; open -a Docker 2>/dev/null || { echo "✗ couldn't launch Docker.app"; exit 1; }
+      printf "  waiting for engine"; i=0
+      while [ "$i" -lt 60 ] && ! docker info >/dev/null 2>&1; do printf "."; sleep 2; i=$((i+1)); done; echo
+      docker info >/dev/null 2>&1 && echo "✓ docker up" || { echo "✗ engine didn't come up in ~2m — rerun once Docker Desktop finishes booting"; exit 1; }
+    fi
+    # 2 ─ launchd agent armed. bootstrap ⇒ RunAtLoad fires the first tick right away; if already
+    #     armed (e.g. only Docker restarted), kickstart one now instead of waiting up to 15m.
+    if launchctl list 2>/dev/null | grep -q "$label"; then
+      echo "✓ $label already armed"
+      launchctl kickstart "$dom/$label" 2>/dev/null && echo "✓ tick kicked now" || echo "… next tick fires on the 15m timer"
+    else
+      launchctl bootstrap "$dom" "$plist" 2>/dev/null || launchctl load "$plist" 2>/dev/null
+      launchctl list 2>/dev/null | grep -q "$label" \
+        && echo "✓ $label armed — first tick firing now (RunAtLoad)" \
+        || { echo "✗ failed to arm $label"; exit 1; }
+    fi
+    echo "  watch:  tail -f $DAEMON_DIR/logs/scheduler.out.log"
+    echo "  status: triagectl status"
+    ;;
   run)
     if [ "$CMODE" = 1 ]; then
       echo "container mode: run a tick from the triage repo dir, not here —"
@@ -180,5 +210,5 @@ case "$cmd" in
     if [ "$CMODE" = 1 ]; then echo "raw dump:  docker run --rm -v $VOL:/s $HELPER_IMG cat $F";
     else echo "raw dump:  cat $F"; fi ;;
   *)
-    echo "usage: triagectl status|pause [project]|resume [project]|abandon <ticket|project>|clear-abandon|stop|budget [pct]|run [--force]|watch [ticket]|session [ticket]" ;;
+    echo "usage: triagectl status|up|pause [project]|resume [project]|abandon <ticket|project>|clear-abandon|stop|budget [pct]|run [--force]|watch [ticket]|session [ticket]" ;;
 esac
