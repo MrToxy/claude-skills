@@ -25,6 +25,21 @@ Do not store state ids in config. Map canonical → tracker **names** in `tracke
 then resolve specifics at runtime:
 - Linear: `list_issue_statuses({ team })` → look up the id for the named state when transitioning.
 - GitHub: states are labels/Projects columns; `states` uses `label:<name>` (add/remove labels).
+- `IN_REVIEW` is **optional**: if `states.IN_REVIEW` is set, transition to it when a target's draft
+  PR opens (Linear: an "In Review" workflow status; GitHub: `label:in-review`, swapped in for the
+  CLAIMED label — the issue is left **open**, the pipeline never closes tracker items). If it is
+  unset, the item stays CLAIMED after its PR — never churned, because the reaper treats an open
+  auto-PR as healthy (below).
+
+## Open auto-PR detection (SCM, shared)
+`hasOpenAutoPR(item)` — true iff an **open** PR exists whose **head branch** is the item's
+`branchName`, in any repo the item routes to (resolve targets from `routing.map` exactly as
+`triage --list` does). GitHub realization, per target repo:
+`gh pr list --repo <repo> --head <branchName> --state open --json url,isDraft` — a **draft** counts
+(the work is done, awaiting review); non-empty ⇒ true. `branchName` is the tracker's `gitBranchName`
+or the derived `auto-triage/<id>-<slug>` — the exact branch `triage-resolve` pushed. This is the
+single source of truth for "work already in flight"; never re-derive it from tracker attachments,
+which lag PR creation. Used identically by `triage --list`, the claim gate, and `triage-cleanup`.
 
 ## Branch name
 `provideBranchName`: if the tracker supplies one (Linear `gitBranchName`), use it verbatim;

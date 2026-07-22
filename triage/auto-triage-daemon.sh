@@ -301,6 +301,8 @@ if [ "$(jqr '.reaper.enabled // true' "$CFG")" = "true" ]; then
     run_claude "$root" "/triage-cleanup $STUCK" "$CHEAP_MODEL" "$REAP_USD" "$rout" "$LOGDIR/${name}.err"
     reaped=$(result_json "$rout" | jq -rc '.reaped // []' 2>/dev/null)
     [ -n "$reaped" ] && [ "$reaped" != "[]" ] && dlog "$name reaped: $reaped"
+    reconciled=$(result_json "$rout" | jq -rc '.reconciled // []' 2>/dev/null)
+    [ -n "$reconciled" ] && [ "$reconciled" != "[]" ] && dlog "$name reconciled: $reconciled"
   done
 fi
 

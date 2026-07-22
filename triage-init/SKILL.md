@@ -31,9 +31,13 @@ Interview one decision at a time; confirm before any mutation. Steps:
 - Ask which tracker(s): Linear, GitHub, or several. For each, pick `interface`
   (`mcp:linear-server` if the MCP is connected; else `cli:gh` for GitHub).
 - **Linear**: `list_teams` → `list_projects` → confirm team/project; `list_issue_statuses`
-  → map `QUEUED/CLAIMED/NEEDS_HUMAN` to real state names (don't invent; show the options).
+  → map `QUEUED/CLAIMED/NEEDS_HUMAN` to real state names (don't invent; show the options). Also map
+  the optional `IN_REVIEW` to a review status if the team has one (e.g. `"In Review"`) — where an
+  item lands once its draft PR opens; if the team has no such column, omit it (items then stay in the
+  CLAIMED status after their PR, never churned).
 - **GitHub**: confirm `repo`; states are labels (`label:triage` / `label:in-progress` /
-  `label:needs-plan`) — these get created in step 5 too.
+  `label:needs-plan`, plus the optional `label:in-review` for `IN_REVIEW`) — these get created in
+  step 5 too. Omit `IN_REVIEW` to leave items on `label:in-progress` after their PR.
 
 ## 3. Build routing
 - **Shape A**: agree the site→label list with the user; for each, resolve `{repo, base,
@@ -69,7 +73,8 @@ unaffected (it ignores sidecars).
   - **Linear**: `create_issue_label` per site label, scoped to the team (`teamId`), with a
     description naming its route (e.g. `→ <repo> @ <base>`). Skip any that already exist
     (`list_issue_labels`).
-  - **GitHub**: `gh label create <state-label>` for the queue/claim/needs-plan labels.
+  - **GitHub**: `gh label create <state-label>` for the queue/claim/needs-plan labels (and
+    `in-review` if `IN_REVIEW` is mapped).
 - Shape B (no site labels): create only the tracker's state labels if it's GitHub; Linear
   shape B needs none.
 

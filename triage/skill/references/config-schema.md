@@ -27,7 +27,7 @@ skills carry no specifics.
   "interface": "mcp:<server>" | "cli:<command>",   // e.g. mcp:linear-server, cli:gh
   "enabled":   boolean,
   "scope":     <tracker-specific>,                 // what counts as the queue
-  "states":    { "QUEUED": s, "CLAIMED": s, "NEEDS_HUMAN": s }  // canonical → tracker state NAMES
+  "states":    { "QUEUED": s, "CLAIMED": s, "NEEDS_HUMAN": s, "IN_REVIEW"?: s }  // canonical → tracker state NAMES ("IN_REVIEW" optional)
 }
 ```
 
@@ -35,6 +35,11 @@ skills carry no specifics.
   (`"Todo"`, `"In Progress"`, …); ids resolved live via `list_issue_statuses`.
 - **github scope**: `{ repo, issueState, queueLabel }`. states are `"label:<name>"` (the
   pipeline adds/removes labels instead of transitioning a workflow state).
+- **`IN_REVIEW` (optional)**: where an item moves once its draft PR opens, so it leaves the active
+  board (out of the queue and the reaper). Linear: a review workflow status (e.g. `"In Review"`).
+  GitHub: `"label:in-review"` (swapped in for the CLAIMED label; the issue stays **open** — the
+  pipeline never closes tracker items). Omit it and items stay `CLAIMED` after their PR (still never
+  churned — the reaper reads an open auto-PR as healthy).
 - Never store ids here — they're discovered at runtime (see `tracker-binding.md`).
 
 ## Routing — two shapes

@@ -54,8 +54,9 @@ unstick anything that died. The modes:
   routing site keys the ticket maps to (its site labels ∩ `routing.siteLabels`; single-repo `default`
   mode → `["default"]`; a ticket routing to ≥2 same-repo sites lists them all).
   Claimable = `QUEUED`,
-  carries a routing site label (label-gated mode) or single-repo `default`, has no open auto
-  PR/branch for its id, and does **not** carry the `triage-blocked` label. **State is the source of
+  carries a routing site label (label-gated mode) or single-repo `default`, `hasOpenAutoPR` is
+  **false** (no open PR already exists for its `branchName` — the shared SCM check, see
+  `references/tracker-binding.md`), and does **not** carry the `triage-blocked` label. **State is the source of
   truth** — a `QUEUED` ticket is claimable even if it still carries a stale `claimMarker` comment
   from a prior run that crashed and was re-queued; do NOT exclude on marker presence. The one
   exception is `triage-blocked`: that label means a human must intervene before a retry, so exclude
@@ -76,7 +77,8 @@ unstick anything that died. The modes:
    Empty → write cursor, continue to next tracker.
 
 2. **Per item — CLAIM (idempotency gate).** Re-fetch (`getItem`).
-   - Skip if no longer `QUEUED`, an open auto PR/branch exists for its id, or it carries the
+   - Skip if no longer `QUEUED`, `hasOpenAutoPR` is true (an open PR already exists for its
+     `branchName` — the work is in flight; see `references/tracker-binding.md`), or it carries the
      `triage-blocked` label (a prior run hit an unrecoverable block — wait for a human). Do NOT skip
      on a lingering `claimMarker` — a `QUEUED` ticket was re-queued for retry; **state is authoritative**.
    - **Label-gated mode** (`siteLabels` non-empty): skip + leave for human if it has none of them.
@@ -85,9 +87,9 @@ unstick anything that died. The modes:
      leave it `QUEUED` for an in-scope tick — do NOT claim (this runner lacks that site's checkout
      and sidecars). This is a benign scope skip, not the Blocked protocol.
    - Else `setState → CLAIMED` + `comment` the `claimMarker`.
-   - **Invariant: a claimed item never *silently* returns to QUEUED** — it exits to a PR (stays
-     CLAIMED), to NEEDS_HUMAN, or — only via the **Blocked protocol** — back to QUEUED carrying the
-     `triage-blocked` label + a reason comment.
+   - **Invariant: a claimed item never *silently* returns to QUEUED** — it exits to a PR
+     (→ `IN_REVIEW`, or stays `CLAIMED` if that state isn't mapped), to NEEDS_HUMAN, or — only via the
+     **Blocked protocol** — back to QUEUED carrying the `triage-blocked` label + a reason comment.
 
 3. **Normalize** → work-item (id, url, title, body, kind, siteLabels, branchName, comments).
 
@@ -108,7 +110,13 @@ unstick anything that died. The modes:
    `{ prs, humanFallbacks, blocked }`. If `blocked` is non-empty (e.g. a tool denied by permissions
    mid-implement, or a step needing manual intervention), run the **Blocked protocol** and stop here.
 
-8. **Sync back** — `attachLink` + `comment` each PR; `comment` each humanFallback. Item stays CLAIMED.
+8. **Sync back & transition.** `attachLink` + `comment` each PR; `comment` each humanFallback. Then
+   move the item off the active board by outcome (a `blocked` return was already handled in step 7):
+   - **Every target became a PR, no humanFallbacks** → the bot is done: `setState → IN_REVIEW` if
+     `states.IN_REVIEW` is mapped for this tracker, else leave it `CLAIMED`. Either way it is now out
+     of the queue and — because it carries an open auto-PR — safe from the reaper.
+   - **Any humanFallback** (a site still needs a person, whether or not other sites got PRs) →
+     `setState → NEEDS_HUMAN`.
 
 9. **Advance cursor**, then **log**: `<ID> → SOLVED(<prs>) | PLAN(<issue>) | HUMAN(<reason>) | BLOCKED(<reason>) | SKIPPED(<reason>)`.
 

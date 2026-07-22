@@ -25,16 +25,22 @@ trigger for cross-site spread in `triage-resolve`.
 
 ## Canonical states (mapped per tracker)
 
-The pipeline knows only three. Each tracker maps them to its own vocabulary in
+The pipeline knows four (the last **optional**). Each tracker maps them to its own vocabulary in
 `trackers.<name>.states` — state **names**, resolved to ids/labels live (never hardcoded):
 
-| canonical     | meaning                              |
-|---------------|--------------------------------------|
-| `QUEUED`      | waiting to be triaged                |
-| `CLAIMED`     | owned by the pipeline, in progress   |
-| `NEEDS_HUMAN` | surfaced for a person to plan/decide |
+| canonical     | meaning                                            |
+|---------------|----------------------------------------------------|
+| `QUEUED`      | waiting to be triaged                              |
+| `CLAIMED`     | owned by the pipeline, in progress                 |
+| `NEEDS_HUMAN` | surfaced for a person to plan/decide               |
+| `IN_REVIEW`   | draft PR open, awaiting human review/merge (opt)   |
 
-No canonical "done": the pipeline opens *draft* PRs and stops; a human merges.
+The pipeline never merges and never marks a tracker item "done" — a human does. `IN_REVIEW` is the
+**bot-terminal** state: once a target's draft PR is open the bot's work is finished, and the item
+leaves the active board — out of both the queue (`triage --list` only claims `QUEUED`) and the
+reaper's reach (`triage-cleanup` only scans `CLAIMED`). It is **optional**: a tracker that doesn't
+map `states.IN_REVIEW` leaves the item `CLAIMED` after its PR opens. Either way the item is never
+churned — the reaper treats an item with an open auto-PR as healthy (see the shared SCM signal below).
 
 ## Capability contract (realized per tracker via tracker-binding.md)
 
@@ -51,3 +57,14 @@ No canonical "done": the pipeline opens *draft* PRs and stops; a human merges.
 
 SCM actions (branches, draft PRs, plan issues via `git`/`gh`) are **not** capabilities — they're
 identical across trackers and live in `triage-resolve`.
+
+### Open auto-PR — the shared SCM signal (not a tracker capability)
+
+Several steps must answer "is there already work in flight for this item?" The authoritative answer
+is **an open PR whose head branch is the item's `branchName`** — an SCM fact, identical across
+trackers, so (like branch/PR creation) it lives outside the capability set. Realize it once (see
+`tracker-binding.md` → *Open auto-PR detection*) as `hasOpenAutoPR(item)` and reuse the SAME check
+in `triage --list`, the claim gate, and `triage-cleanup`. Prefer it over reading tracker
+"attachments": a run can die between `gh pr create` and `attachLink`, so the PR exists with no
+attachment yet — the head-branch query still finds it, the attachment lookup misses it. Reading the
+attachment instead of the branch is exactly what let the reaper reap tickets that already had a PR.
