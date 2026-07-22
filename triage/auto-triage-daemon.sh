@@ -159,17 +159,24 @@ for ((p=0; p<PROJ_COUNT; p++)); do
   [ -d "$root" ] || { dlog "missing root $name: $root"; continue; }
   lout="$LOGDIR/${name}.list.json"
   run_claude "$root" "/triage --list" "$CHEAP_MODEL" "$LIST_USD" "$lout" "$LOGDIR/${name}.err"
-  # `--list` reports EVERY claimable ticket as {id,sites}; the site-scope DROP is deterministic HERE
-  # (not trusted to the cheap model) so an out-of-scope ticket never spawns a costly per-ticket run
-  # just to scope-skip. Keep a ticket iff TRIAGE_ONLY_SITES is empty, or its sites intersect it.
-  # Fail-safe: unknown/empty `sites` (e.g. the model regressed to bare IDs) is KEPT — the per-ticket
-  # CLAIM gate still scope-skips it, so a site is never silently starved of work.
+  # `--list` reports each claimable ticket as {id,sites}; two DROPS are deterministic HERE (never
+  # trusted to the cheap model), so neither a route-less nor an out-of-scope ticket spawns a costly
+  # per-ticket run just to skip:
+  #   (1) label-gated project (routing.siteLabels non-empty) + ticket reports EMPTY sites → it carries
+  #       no routing label → not claimable → drop. This is the token leak TECH-645 exposed.
+  #   (2) TRIAGE_ONLY_SITES set + sites don't intersect it → out of this runner's scope → drop.
+  # Fail-safe: sites==null (model regressed to bare IDs — route UNKNOWN, not known-empty) is KEPT; the
+  # per-ticket CLAIM gate re-checks, so a site is never silently starved on a model glitch. Single-repo
+  # projects (siteLabels empty) never drop on (1) — their sites is always ["default"], never empty.
   only_arr=$(printf '%s' "${TRIAGE_ONLY_SITES:-}" | tr ', ' '\n' | jq -R . | jq -sc 'map(select(length>0))')
+  labelgated=$(jq -r '((.routing.siteLabels // []) | length) > 0' "$root/.claude/auto-triage.config.json" 2>/dev/null)
+  [ "$labelgated" = "true" ] || labelgated=false   # unreadable config → treat as not-gated → keep (conservative)
   listjson=$(result_json "$lout")
-  ids=$(printf '%s' "$listjson" | jq -r --argjson only "$only_arr" '
+  ids=$(printf '%s' "$listjson" | jq -r --argjson only "$only_arr" --argjson labelgated "$labelgated" '
     (.[]? | if type=="object" then . else {id:., sites:null} end) as $t
-    | if ($only|length)==0 then $t.id
-      elif ($t.sites==null or ($t.sites|length)==0) then $t.id
+    | if $t.sites==null then $t.id
+      elif ($t.sites|length)==0 then (if $labelgated then empty else $t.id end)
+      elif ($only|length)==0 then $t.id
       elif ($t.sites | any(. as $s | $only|index($s))) then $t.id
       else empty end' 2>/dev/null)
   total=$(printf '%s' "$listjson" | jq -r '[.[]?]|length' 2>/dev/null); [ -z "$total" ] && total=0
@@ -179,7 +186,7 @@ for ((p=0; p<PROJ_COUNT; p++)); do
     JST[$n]=0; n=$((n+1)); cnt=$((cnt+1))
   done
   if [ -n "${TRIAGE_ONLY_SITES:-}" ]; then dlog "$name: $cnt claimable in scope [$TRIAGE_ONLY_SITES] ($total reported)"
-  else dlog "$name: $cnt claimable"; fi
+  else dlog "$name: $cnt claimable ($total reported)"; fi
 done
 
 if [ "$n" -eq 0 ]; then

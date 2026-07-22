@@ -53,10 +53,18 @@ unstick anything that died. The modes:
   e.g. `[{"id":"ABC-552","sites":["server"]},{"id":"ABC-645","sites":["site-a"]}]`. `sites` = the
   routing site keys the ticket maps to (its site labels ∩ `routing.siteLabels`; single-repo `default`
   mode → `["default"]`; a ticket routing to ≥2 same-repo sites lists them all).
+  **Filter at the query, not after.** Fetch the queue already narrowed by **state** and — in
+  label-gated mode — by **site label** (e.g. Linear `list_issues` with a state+label filter; GitHub
+  `gh issue list --label <queueLabel>`, then keep only issues carrying ≥1 site label), so a route-less
+  ticket is never even retrieved. This is what stops a label-less ticket from reaching a costly
+  per-ticket run.
   Claimable = `QUEUED`,
   carries a routing site label (label-gated mode) or single-repo `default`, `hasOpenAutoPR` is
   **false** (no open PR already exists for its `branchName` — the shared SCM check, see
-  `references/tracker-binding.md`), and does **not** carry the `triage-blocked` label. **State is the source of
+  `references/tracker-binding.md`), and does **not** carry the `triage-blocked` label. A ticket with
+  **no** routing site label in label-gated mode is **not claimable** — never list it; its `sites` is
+  empty, which is never a valid entry (the daemon deterministically drops any empty-`sites` straggler).
+  **State is the source of
   truth** — a `QUEUED` ticket is claimable even if it still carries a stale `claimMarker` comment
   from a prior run that crashed and was re-queued; do NOT exclude on marker presence. The one
   exception is `triage-blocked`: that label means a human must intervene before a retry, so exclude
