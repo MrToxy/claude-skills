@@ -31,8 +31,11 @@ skills carry no specifics.
 }
 ```
 
-- **linear scope**: `{ team, project, queueState }`. states are workflow-state names
-  (`"Todo"`, `"In Progress"`, …); ids resolved live via `list_issue_statuses`.
+- **linear scope**: `{ team, queueState, project?, label? }`. `project` **or** `label` narrows the
+  queue: `project` for a project-scoped app; `label` when the app's work is spread across many projects
+  and a single label marks it (e.g. `"label": "bisondesk"`). Both may be combined. `fetchQueue` passes
+  them straight into `list_issues` (state + project and/or label filter). states are workflow-state
+  names (`"Todo"`, `"In Progress"`, …); ids resolved live via `list_issue_statuses`.
 - **github scope**: `{ repo, issueState, queueLabel }`. states are `"label:<name>"` (the
   pipeline adds/removes labels instead of transitioning a workflow state).
 - **`IN_REVIEW` (optional)**: where an item moves once its draft PR opens, so it leaves the active
@@ -41,6 +44,10 @@ skills carry no specifics.
   pipeline never closes tracker items). Omit it and items stay `CLAIMED` after their PR (still never
   churned — the reaper reads an open auto-PR as healthy).
 - Never store ids here — they're discovered at runtime (see `tracker-binding.md`).
+- **Dependency ordering (no config).** For Linear trackers the pipeline automatically honours
+  `blocked by` relations: a queued item whose blocker isn't Done is skipped until it is (see the
+  `triage` skill's **Dependency gate**). No config knob — it lets a human split a cross-repo change
+  into ordered per-repo sub-tickets that each auto-resolve in turn.
 
 ## Routing — two shapes
 

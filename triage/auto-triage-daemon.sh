@@ -37,7 +37,7 @@ proj_paused(){ jq -e --arg n "$1" '(.pausedProjects // []) | index($n)' "$CONTRO
 abandoned(){ jq -e --arg a "$1" --arg b "$2" '(.abandon // []) | (index($a) or index($b))' "$CONTROL" >/dev/null 2>&1; }
 
 run_claude(){ # $1=root $2=prompt $3=model $4=maxusd $5=outfile $6=errfile
-  ( cd "$1" && CLAUDE_CONFIG_DIR="$DAEMON_DIR" claude -p "$2" \
+  ( cd "$1" && CLAUDE_CONFIG_DIR="$DAEMON_DIR" CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS="${CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS:-0}" claude -p "$2" \
       --model "$3" --permission-mode "${TRIAGE_PERMISSION_MODE:-dontAsk}" --max-budget-usd "$4" \
       --output-format json < /dev/null > "$5" 2>> "$6" )
 }

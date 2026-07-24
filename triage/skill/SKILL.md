@@ -61,7 +61,9 @@ unstick anything that died. The modes:
   Claimable = `QUEUED`,
   carries a routing site label (label-gated mode) or single-repo `default`, `hasOpenAutoPR` is
   **false** (no open PR already exists for its `branchName` — the shared SCM check, see
-  `references/tracker-binding.md`), and does **not** carry the `triage-blocked` label. A ticket with
+  `references/tracker-binding.md`), does **not** carry the `triage-blocked` label, and is **not
+  dependency-blocked** (Linear: no open `blocked by` relation whose blocker isn't yet Done — see
+  **Dependency gate**). A ticket with
   **no** routing site label in label-gated mode is **not claimable** — never list it; its `sites` is
   empty, which is never a valid entry (the daemon deterministically drops any empty-`sites` straggler).
   **State is the source of
@@ -79,6 +81,26 @@ unstick anything that died. The modes:
 - **Queue mode** (`triage`, no arg) — manual: process up to `limits.maxIssuesPerTick` oldest
   queued items in one session. Not used by the daemon (which prefers per-ticket fan-out).
 
+## Dependency gate (blocked-by)
+
+A human splits a cross-repo feature into per-repo sub-tickets linked by **`blocked by`** relations that
+express order (e.g. the website sub-ticket is *blocked by* the BisonDesk one). While any blocker is
+unsatisfied the dependent is **dependency-blocked**: not claimable — skipped and left `QUEUED` for a
+later tick. This is a benign wait, distinct from the **Blocked protocol** (an unrecoverable error) and
+from the `triage-blocked` label.
+
+- **Linear only.** At claim time fetch relations (`get_issue` with `includeRelations: true`) and read
+  `relations.blockedBy`. Empty → not dependency-blocked. Other trackers: no-op unless they expose an
+  equivalent.
+- **Satisfied = blocker terminal** — its `statusType` is `completed` (Done) or `canceled`. Any blocker
+  not satisfied → dependency-blocked. (If a `blockedBy` element omits the blocker's status, resolve it
+  with one `get_issue` on the blocker id.)
+- **Applies in `--list` and at claim** — same check both places, so a dependency-blocked ticket is
+  never reported claimable and never claimed; it just waits.
+
+Release signal: a human merges + deploys the blocker's PR, then moves the blocker to Done — the
+dependent un-blocks on the next tick.
+
 ## Procedure (per enabled tracker, per tick)
 
 1. **Fetch queue** — capability `fetchQueue` over `trackers.<t>.scope`, filtered by the cursor.
@@ -89,6 +111,8 @@ unstick anything that died. The modes:
      `branchName` — the work is in flight; see `references/tracker-binding.md`), or it carries the
      `triage-blocked` label (a prior run hit an unrecoverable block — wait for a human). Do NOT skip
      on a lingering `claimMarker` — a `QUEUED` ticket was re-queued for retry; **state is authoritative**.
+   - **Dependency gate (blocked-by).** Skip if the item is *dependency-blocked* — leave it `QUEUED` for
+     a later tick (a benign wait, not the Blocked protocol). See **Dependency gate** above.
    - **Label-gated mode** (`siteLabels` non-empty): skip + leave for human if it has none of them.
      **Single-repo mode** (`siteLabels` empty + a `default` target): never skipped on labels.
    - **Out of `TRIAGE_ONLY_SITES` scope** (env set + the item routes to a site not in it): skip and
