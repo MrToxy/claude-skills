@@ -1,30 +1,46 @@
 #!/usr/bin/env bash
-# triage-all — one scheduler pass: run a per-site tick (`triage-tick <site>`) for every site in the
-# project's routing map, SEQUENTIALLY, each provisioning only that site's sidecars. This is what the
+# triage-all — one scheduler pass. For EACH project routing config in ROUTING_CONFIGS (falls back to
+# the single ROUTING_CONFIG), run a per-site tick (`triage-tick <site>`) for every site in that
+# config's routing map, SEQUENTIALLY, each provisioning only that site's sidecars. This is what the
 # host scheduler (launchd/cron) fires each interval. Single-instance via an mkdir lock, so a long tick
-# never overlaps the next fire. Sites come from the config unless `TRIAGE_ONLY_SITES` pins a subset.
+# never overlaps the next fire. Sites come from each config unless `TRIAGE_ONLY_SITES` pins a subset.
 set -uo pipefail
 
 ENV_FILE="${CONTAINER_ENV_FILE:-$HOME/.claude-triage/container.env}"
 [ -f "$ENV_FILE" ] || { echo "FATAL: env file not found: $ENV_FILE" >&2; exit 1; }
 set -a; . "$ENV_FILE"; set +a
-CFG="${ROUTING_CONFIG:?ROUTING_CONFIG must be set in $ENV_FILE}"
+# One or many project configs. ROUTING_CONFIGS (space/newline-separated) wins; else the single
+# ROUTING_CONFIG (back-compat). Each is a <project>/.claude/auto-triage.config.json path.
+CONFIGS="${ROUTING_CONFIGS:-${ROUTING_CONFIG:?ROUTING_CONFIG or ROUTING_CONFIGS must be set in $ENV_FILE}}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
 command -v jq >/dev/null 2>&1 || { echo "FATAL: jq required on the host" >&2; exit 1; }
 
 LOCK="${CLAUDE_TRIAGE_DIR:-$HOME/.claude-triage}/triage-all.lock"
 mkdir "$LOCK" 2>/dev/null || { echo "triage-all: a pass is already running ($LOCK); skip"; exit 0; }
-trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT
+PENV=""
+trap 'rmdir "$LOCK" 2>/dev/null || true; [ -n "$PENV" ] && rm -f "$PENV" 2>/dev/null || true' EXIT
 
-# Sites = routing.map keys, unless TRIAGE_ONLY_SITES pins a subset (comma- or space-separated).
-if [ -n "${TRIAGE_ONLY_SITES:-}" ]; then
-  sites=$(printf '%s' "$TRIAGE_ONLY_SITES" | tr ',' ' ')
-else
-  sites=$(jq -r '.routing.map | keys[]' "$CFG")
-fi
+for CFG in $CONFIGS; do
+  [ -f "$CFG" ] || { echo "triage-all: config not found, skipping: $CFG" >&2; continue; }
+  proj="$(basename "$(dirname "$(dirname "$CFG")")")"   # <project>/.claude/config.json -> <project>
 
-for s in $sites; do
-  echo "=== triage-all: tick $s ($(date -u +%FT%TZ)) ==="
-  # Each site gets its own scope; unset the pin so triage-tick sets it per-site itself.
-  TRIAGE_ONLY_SITES="" "$HERE/triage-tick" "$s" || echo "triage-all: $s tick failed (continuing)"
+  # Per-config env: the shared env file with ROUTING_CONFIG(S) swapped to THIS single config, so both
+  # triage-tick and the compose `${ROUTING_CONFIG}` mount target the right project — no secret dupes.
+  PENV="$(mktemp)"; grep -vE '^ROUTING_CONFIGS?=' "$ENV_FILE" > "$PENV"; printf 'ROUTING_CONFIG=%s\n' "$CFG" >> "$PENV"
+
+  # Sites = this config's routing.map keys, unless TRIAGE_ONLY_SITES pins a subset (comma/space list).
+  if [ -n "${TRIAGE_ONLY_SITES:-}" ]; then
+    sites=$(printf '%s' "$TRIAGE_ONLY_SITES" | tr ',' ' ')
+  else
+    sites=$(jq -r '.routing.map | keys[]' "$CFG")
+  fi
+
+  for s in $sites; do
+    echo "=== triage-all: tick $proj/$s ($(date -u +%FT%TZ)) ==="
+    # Each site gets its own scope; unset the pin so triage-tick sets it per-site itself.
+    CONTAINER_ENV_FILE="$PENV" TRIAGE_ONLY_SITES="" "$HERE/triage-tick" "$s" \
+      || echo "triage-all: $proj/$s tick failed (continuing)"
+  done
+
+  rm -f "$PENV"; PENV=""
 done
