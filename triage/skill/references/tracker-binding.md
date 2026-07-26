@@ -46,8 +46,47 @@ which lag PR creation. Used identically by `triage --list`, the claim gate, and 
 otherwise derive `auto-triage/<id>-<slug>`.
 
 ## Identity & dedup
-- `claimMarker` (config) is posted as a comment on claim — an audit trail + the timestamp
-  `triage-cleanup` reads to age stale claims. It is NOT a claimability signal: **state** (QUEUED
-  vs not) decides what's claimable, so a re-queued ticket with a lingering marker stays claimable.
+- `claimMarker` (config) is the **prefix of the item's single status comment** (see **Notification
+  budget**) — an audit trail, not a claimability signal: **state** (QUEUED vs not) decides what's
+  claimable, so a re-queued ticket with a lingering marker stays claimable.
 - Item ids are tracker-local; the cursor and branch names are per-tracker, so ids never collide
   even when several trackers run at once.
+
+## Claim age & failed attempts — read the tracker's own history, never comments
+Reconstructing these from comments is what made the pipeline comment to keep score. Both are native:
+- `claimedSince(item)` — when the item entered CLAIMED. Linear: `get_issue` → `stateHistory`, the
+  **current** entry (`endedAt: null`); if its state is not the mapped CLAIMED state the item is not
+  claimed at all, so there is no claim to age and nothing to reap. GitHub: the timeline event that
+  added the CLAIMED label.
+- `failedAttempts(item)` — how many runs already died on it: the number of **CLAIMED → QUEUED**
+  transitions in that same history. Feeds `triage-cleanup`'s retry cap.
+
+## Notification budget — comment only when a human must act
+Every **new** comment notifies every subscriber of the item. Comments are therefore a scarce
+resource, not a log: the daemon's own logs are the audit trail, the tracker is for humans.
+
+1. **No state change ⇒ no write.** If a pass leaves the item in the state it already had, it writes
+   **nothing** — no comment, no label, no edit. "Nothing changed" never justifies a notification.
+   (This is the rule that was broken: one ticket collected 12 identical "returning to queue for
+   retry" comments, plus "stale claim reconciled … remaining in work queue" no-ops.)
+2. **One status comment per item, edited in place.** All machine lifecycle — claim, attempt count,
+   last outcome — lives in a single bot-owned comment whose body starts with `claimMarker`: created
+   on first claim, thereafter **updated**, never re-posted. Editing a comment does not notify
+   subscribers, so lifecycle churn is silent. Realization: `list_comments` → the first comment whose
+   body starts with `claimMarker` → Linear `save_comment({ id, body })`; GitHub
+   `gh api --method PATCH /repos/<repo>/issues/comments/<id> -f body=…`. Absent → create it once.
+   Skip the write entirely when the body would be unchanged.
+3. **New comments are allowlisted, once each.** Only these earn a notification, because each names
+   something only a person can do next:
+   - a draft PR opened — one comment per PR (the deliverable),
+   - NEEDS_HUMAN: a plan issue filed, or a `humanFallback` a person must pick up,
+   - `triage-blocked` + reason (a person must clear the label),
+   - un-routable item: no routing site label, so it can never be picked up (a person must add one).
+   Everything else — claim, re-queue for retry, "stale claim reconciled", scope skip, dependency
+   wait, `hasOpenAutoPR` skip, any no-op reconcile — updates the **status comment** instead.
+4. **Dedup before posting.** `list_comments` first: if an existing bot comment already carries that
+   PR url / plan issue / block reason / "add a site label" ask, update it or stay silent — never post
+   it again. Re-stating a fact already on the item is a duplicate notification, not an audit trail.
+5. **Never write the item's title or description.** The pipeline touches comments, labels, state and
+   attachments only. (A past run appended "previous run did not complete…" into a ticket's
+   *description* — spam and data loss at once.)

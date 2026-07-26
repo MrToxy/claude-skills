@@ -22,8 +22,10 @@
   },
 
   "reaper": {
+    "_comment": "maxAttempts caps retries of the SAME ticket: after this many runs die on it without producing a PR or plan, the reaper parks it (triage-blocked + one comment) instead of re-queuing it forever — which is what produced repeated 'returning to queue for retry' notifications.",
     "enabled": true,
-    "stuckAfterMinutes": 60
+    "stuckAfterMinutes": 60,
+    "maxAttempts": 3
   },
 
   "projects": [

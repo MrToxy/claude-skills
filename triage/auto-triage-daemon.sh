@@ -300,12 +300,13 @@ fi
 # ---- 3. reaper: unlock stale claims (crashed/killed runs) ----
 if [ "$(jqr '.reaper.enabled // true' "$CFG")" = "true" ]; then
   STUCK=$(jqr '.reaper.stuckAfterMinutes // 60' "$CFG")
+  MAXATT=$(jqr '.reaper.maxAttempts // 3' "$CFG")
   for ((p=0; p<PROJ_COUNT; p++)); do
     name=$(jqr ".projects[$p].name" "$CFG"); root=$(jqr ".projects[$p].root" "$CFG")
     enabled=$(jqr ".projects[$p].enabled" "$CFG")
     [ "$enabled" = "true" ] && [ -d "$root" ] || continue
     rout="$LOGDIR/${name}.cleanup.json"
-    run_claude "$root" "/triage-cleanup $STUCK" "$CHEAP_MODEL" "$REAP_USD" "$rout" "$LOGDIR/${name}.err"
+    run_claude "$root" "/triage-cleanup $STUCK $MAXATT" "$CHEAP_MODEL" "$REAP_USD" "$rout" "$LOGDIR/${name}.err"
     reaped=$(result_json "$rout" | jq -rc '.reaped // []' 2>/dev/null)
     [ -n "$reaped" ] && [ "$reaped" != "[]" ] && dlog "$name reaped: $reaped"
     reconciled=$(result_json "$rout" | jq -rc '.reconciled // []' 2>/dev/null)

@@ -10,7 +10,7 @@ skills carry no specifics.
 ```
 {
   "trackers":    { <name>: Tracker, ... },   // one or many; each independently enabled
-  "claimMarker": string,                     // comment posted on claim; dedup backstop
+  "claimMarker": string,                     // prefix of the item's ONE bot-owned status comment (upserted, never re-posted)
   "routing":     Routing,
   "env":         { <KEY>: string, ... },     // non-secret build vars exported into the container at spin-up (optional)
   "sidecars":    { "services": <compose> },  // auxiliary containers (DB/browser) — container runner only (optional)

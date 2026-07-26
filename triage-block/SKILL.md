@@ -36,7 +36,9 @@ Read first (cwd-relative — run from the project root; shared with `triage`, si
    if missing — a Linear label, `gh label create`, …), then add it to the item.
 3. **Return to queue** — `setState → QUEUED` (that tracker's mapped queued/Todo state, e.g. Linear
    `Todo` or GitHub `label:triage`).
-4. **Comment the reason** — exactly one comment:
+4. **Comment the reason** — at most one comment, and only if it is new. `list_comments` first: if a
+   bot block comment already carries the same reason, **update it in place** (or leave it) — a
+   re-block on the same cause must never re-notify subscribers. Otherwise post exactly:
    `🤖 auto-triage blocked: <reason>. A human must resolve this, then remove the 'triage-blocked' label to re-queue.`
 5. **Output** — your entire final message is JSON: `{"blocked": "<ITEM-ID>"}` (or `{"blocked": null}`
    if the item could not be found on any enabled tracker).
@@ -49,5 +51,7 @@ the operator's usual queue view rather than rotting in an in-progress lane.
 
 ## Guardrails
 - Bind to the item's OWN tracker — never hardcode Linear or GitHub.
-- Only label + `setState` + one `comment`; never edit code, push, merge, or delete tracker data.
+- Only label + `setState` + at most one `comment`, deduped per reason (**Notification budget** in
+  `tracker-binding.md`); never edit code, push, merge, delete tracker data, or touch the item's
+  title/description.
 - Idempotent: applying an already-present label or re-posting the same state is a no-op, never a duplicate.

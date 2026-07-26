@@ -111,14 +111,21 @@ dependent un-blocks on the next tick.
      `branchName` — the work is in flight; see `references/tracker-binding.md`), or it carries the
      `triage-blocked` label (a prior run hit an unrecoverable block — wait for a human). Do NOT skip
      on a lingering `claimMarker` — a `QUEUED` ticket was re-queued for retry; **state is authoritative**.
+     Every skip below is **silent**: no comment, no label, no state write — the item is already where
+     it belongs, and announcing a skip only notifies subscribers of a non-event. The lone exception is
+     the un-routable case (next bullet), where a human must add a label before anything can happen.
    - **Dependency gate (blocked-by).** Skip if the item is *dependency-blocked* — leave it `QUEUED` for
      a later tick (a benign wait, not the Blocked protocol). See **Dependency gate** above.
-   - **Label-gated mode** (`siteLabels` non-empty): skip + leave for human if it has none of them.
+   - **Label-gated mode** (`siteLabels` non-empty): skip + leave for human if it has none of them —
+     and comment the ask (which labels to add) **once ever**: `list_comments` first and stay silent if
+     a bot comment already asked. This is the one allowlisted skip comment.
      **Single-repo mode** (`siteLabels` empty + a `default` target): never skipped on labels.
    - **Out of `TRIAGE_ONLY_SITES` scope** (env set + the item routes to a site not in it): skip and
      leave it `QUEUED` for an in-scope tick — do NOT claim (this runner lacks that site's checkout
      and sidecars). This is a benign scope skip, not the Blocked protocol.
-   - Else `setState → CLAIMED` + `comment` the `claimMarker`.
+   - Else `setState → CLAIMED` + **upsert the status comment** — the one bot-owned comment
+     prefixed with `claimMarker`, edited in place, never re-posted (**Notification budget** in
+     `references/tracker-binding.md`).
    - **Invariant: a claimed item never *silently* returns to QUEUED** — it exits to a PR
      (→ `IN_REVIEW`, or stays `CLAIMED` if that state isn't mapped), to NEEDS_HUMAN, or — only via the
      **Blocked protocol** — back to QUEUED carrying the `triage-blocked` label + a reason comment.
@@ -142,7 +149,9 @@ dependent un-blocks on the next tick.
    `{ prs, humanFallbacks, blocked }`. If `blocked` is non-empty (e.g. a tool denied by permissions
    mid-implement, or a step needing manual intervention), run the **Blocked protocol** and stop here.
 
-8. **Sync back & transition.** `attachLink` + `comment` each PR; `comment` each humanFallback. Then
+8. **Sync back & transition.** `attachLink` + `comment` each PR; `comment` each humanFallback —
+   one comment per PR / per fallback, and skipped if a bot comment already carries that PR url or
+   fallback (**Notification budget**). Then
    move the item off the active board by outcome (a `blocked` return was already handled in step 7):
    - **Every target became a PR, no humanFallbacks** → the bot is done: `setState → IN_REVIEW` if
      `states.IN_REVIEW` is mapped for this tracker, else leave it `CLAIMED`. Either way it is now out
@@ -178,7 +187,12 @@ every tracker. Your only jobs are to stop cleanly and state the reason.
 
 ## Guardrails
 - Draft PRs only; never merge; never push a base.
-- Never delete tracker/SCM data — comment / attach / transition only.
+- Never delete tracker/SCM data — comment / attach / transition only; never edit an item's title
+  or description.
+- **Comments notify every subscriber** — obey the **Notification budget** in
+  `references/tracker-binding.md`: no state change ⇒ no write, machine lifecycle goes in the single
+  status comment (edited in place), new comments only for the allowlisted human-actionable events,
+  deduped.
 - **Any error you cannot overcome** (permission denial, broken environment, unrecoverable failure,
   unexpected exception) → **Blocked protocol** (above): surface it, do not finish silently and do
   not file it as a `humanFallback` (that is only for product ambiguity on an otherwise-healthy run).
