@@ -1,12 +1,13 @@
 ---
 name: triage-cleanup
 description: >
-  Janitor for the auto-triage pipeline. Scans tickets left CLAIMED (carrying the auto-triage
-  claimMarker) whose claim is older than a threshold — a run that crashed, timed out, or was
-  abandoned — and reconciles each to its true state: a ticket that already has an open auto-PR is
-  healthy (→ IN_REVIEW, or left CLAIMED — never reaped), one with an attached plan issue goes to
-  NEEDS_HUMAN, and only a genuinely orphaned one (no PR, no plan) returns to the queue for retry.
-  Use as `triage-cleanup [<minutes>]`, or when asked to unstick / reap stale auto-triage claims.
+  Janitor for the auto-triage pipeline. Scans tickets whose CURRENT state is CLAIMED and that entered
+  it longer ago than a threshold (read from the tracker's own state history) — a run that crashed,
+  timed out, or was abandoned — and reconciles each to its true state: a ticket that already has an
+  open auto-PR is healthy (→ IN_REVIEW, or left CLAIMED — never reaped), one with an attached plan
+  issue goes to NEEDS_HUMAN, and a genuinely orphaned one (no PR, no plan) is retried silently until
+  the attempt cap, then parked. Anything not currently CLAIMED is left untouched.
+  Use as `triage-cleanup [<minutes>] [<maxAttempts>]`, or when asked to unstick stale auto-triage claims.
   Tracker- and project-agnostic; reuses the triage config + tracker binding. Read-mostly and
   **quiet**: it transitions state and updates one bot-owned status comment in place, and posts a NEW
   comment only when it parks an item at the retry cap — never edits code, never opens PRs.
