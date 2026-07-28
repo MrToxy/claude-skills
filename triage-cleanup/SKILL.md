@@ -7,7 +7,9 @@ description: >
   open auto-PR is healthy (→ IN_REVIEW, or left CLAIMED — never reaped), one with an attached plan
   issue goes to NEEDS_HUMAN, and a genuinely orphaned one (no PR, no plan) is retried silently until
   the attempt cap, then parked. Anything not currently CLAIMED is left untouched.
-  Use as `triage-cleanup [<minutes>] [<maxAttempts>]`, or when asked to unstick stale auto-triage claims.
+  Use as `triage-cleanup [<minutes>] [<maxAttempts>] [<candidatesJson>]` — the daemon passes the
+  candidate set precomputed from the tracker's API, and when it does that set is authoritative — or
+  when asked to unstick stale auto-triage claims.
   Tracker- and project-agnostic; reuses the triage config + tracker binding. Read-mostly and
   **quiet**: it transitions state and updates one bot-owned status comment in place, and posts a NEW
   comment only when it parks an item at the retry cap — never edits code, never opens PRs.
@@ -37,13 +39,25 @@ Read first (cwd-relative — run from the project root; shared with `triage`, si
 - `~/.claude/skills/triage/references/work-item-schema.md` — canonical states + capability contract.
 
 ## Invocation
-`triage-cleanup [<minutes>] [<maxAttempts>]` — `<minutes>` is the stale threshold (default **60**);
-`<maxAttempts>` caps how many times one item may be re-queued before it is parked instead (default
-**3**). The daemon passes `reaper.stuckAfterMinutes` and `reaper.maxAttempts`.
+`triage-cleanup [<minutes>] [<maxAttempts>] [<candidatesJson>]` — `<minutes>` is the stale threshold
+(default **60**); `<maxAttempts>` caps how many times one item may be re-queued before it is parked
+instead (default **3**). The daemon passes `reaper.stuckAfterMinutes` and `reaper.maxAttempts`.
+
+`<candidatesJson>`, when present, **is the candidate set** — the daemon computed it directly from the
+tracker's API (current state + transition history), so it is complete and authoritative:
+`[{"id":"ABC-123","claimedSince":"<ISO8601>","failedAttempts":<n>}, …]`. Work exactly those ids and
+take those numbers verbatim: do **not** look for further candidates, do **not** re-derive age or
+attempt counts, and if the array is empty do nothing at all. Choosing candidates is precisely what
+this skill got wrong before — it once reaped a ticket that had never been claimed, every tick for
+days — so where the daemon has already decided, its decision wins outright.
+
+Absent (manual run, or a tracker the daemon cannot pre-query) → discover them yourself per step 1.
 
 ## Procedure (per enabled tracker)
 
-1. **Find candidates — strictly `CLAIMED`, strictly stale.** Both facts come from the tracker's own
+1. **Find candidates — strictly `CLAIMED`, strictly stale.** *Skip this step entirely when
+   `<candidatesJson>` was supplied — that array is already the answer.* Otherwise: both facts come
+   from the tracker's own
    state history (`claimedSince`, see `tracker-binding.md`), never from comments: the item's
    **current** state is the mapped `CLAIMED` state **and** it entered that state more than
    `<minutes>` ago. Anything else — `QUEUED`, `IN_REVIEW`, `NEEDS_HUMAN`, or a younger claim — is
@@ -68,7 +82,8 @@ Read first (cwd-relative — run from the project root; shared with `triage`, si
    - **Else genuinely orphaned** (no open PR, no plan) — the run crashed with nothing to show. Read
      `failedAttempts` (the item's CLAIMED→QUEUED transitions, `tracker-binding.md`) and branch:
      - `failedAttempts < <maxAttempts>` → **retry silently**: `setState → QUEUED`, and record the
-       attempt by **updating the status comment** (the `claimMarker` comment, edited in place). Post
+       attempt by **updating the status comment** (the `<claimMarker> status:` comment, edited in
+       place — never any other bot comment, which is a human-facing one). Post
        **no new comment** — a retry is machine bookkeeping, not news for every subscriber.
      - `failedAttempts >= <maxAttempts>` → retrying is not working, so stop the loop instead of
        re-queuing forever: delegate to **`triage-block`** with reason
@@ -88,6 +103,8 @@ Read first (cwd-relative — run from the project root; shared with `triage`, si
   attachments — a run can die after `gh pr create` but before `attachLink`, so the PR exists with no
   attachment yet. An attachment is a fallback signal, never the primary one.
 - Never touch a ticket whose claim is younger than the threshold.
+- **Never touch a ticket outside the candidate set.** When `<candidatesJson>` was supplied, those ids
+  are the complete list of items you may read *and* write; anything else is out of bounds this run.
 - Only `setState` + the status comment; never edit code, push, merge, or delete. **Never** write the
   item's title or **description** (a past run appended "previous run did not complete…" into a
   ticket's description — data loss, not a status).

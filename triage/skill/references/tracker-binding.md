@@ -46,9 +46,15 @@ which lag PR creation. Used identically by `triage --list`, the claim gate, and 
 otherwise derive `auto-triage/<id>-<slug>`.
 
 ## Identity & dedup
-- `claimMarker` (config) is the **prefix of the item's single status comment** (see **Notification
-  budget**) — an audit trail, not a claimability signal: **state** (QUEUED vs not) decides what's
-  claimable, so a re-queued ticket with a lingering marker stays claimable.
+- `claimMarker` (config) marks a comment as **the bot's** — every comment the pipeline writes starts
+  with it. The item's single **status comment** is identified by the narrower prefix
+  **`<claimMarker> status:`**, which no other comment may ever use.
+  Keeping those two apart is load-bearing. While "the `claimMarker` comment" also matched the block
+  notice, the PR notice and the "add a site label" ask, any item that had *ever* been commented on
+  read as a claim — so a ticket that was never claimed was reaped every tick — and an upsert would
+  overwrite a human-facing comment instead of the status line.
+- Neither marker is a claimability signal: **state** (QUEUED vs not) decides what's claimable, so a
+  re-queued ticket with a lingering marker stays claimable.
 - Item ids are tracker-local; the cursor and branch names are per-tracker, so ids never collide
   even when several trackers run at once.
 
@@ -70,10 +76,11 @@ resource, not a log: the daemon's own logs are the audit trail, the tracker is f
    (This is the rule that was broken: one ticket collected 12 identical "returning to queue for
    retry" comments, plus "stale claim reconciled … remaining in work queue" no-ops.)
 2. **One status comment per item, edited in place.** All machine lifecycle — claim, attempt count,
-   last outcome — lives in a single bot-owned comment whose body starts with `claimMarker`: created
-   on first claim, thereafter **updated**, never re-posted. Editing a comment does not notify
-   subscribers, so lifecycle churn is silent. Realization: `list_comments` → the first comment whose
-   body starts with `claimMarker` → Linear `save_comment({ id, body })`; GitHub
+   last outcome — lives in a single bot-owned comment whose body starts with `<claimMarker> status:`
+   (and nothing else may start with that): created on first claim, thereafter **updated**, never
+   re-posted. Editing a comment does not notify subscribers, so lifecycle churn is silent.
+   Realization: `list_comments` → the first comment whose
+   body starts with `<claimMarker> status:` → Linear `save_comment({ id, body })`; GitHub
    `gh api --method PATCH /repos/<repo>/issues/comments/<id> -f body=…`. Absent → create it once.
    Skip the write entirely when the body would be unchanged.
 3. **New comments are allowlisted, once each.** Only these earn a notification, because each names

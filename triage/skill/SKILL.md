@@ -124,8 +124,9 @@ dependent un-blocks on the next tick.
      leave it `QUEUED` for an in-scope tick — do NOT claim (this runner lacks that site's checkout
      and sidecars). This is a benign scope skip, not the Blocked protocol.
    - Else `setState → CLAIMED` + **upsert the status comment** — the one bot-owned comment
-     prefixed with `claimMarker`, edited in place, never re-posted (**Notification budget** in
-     `references/tracker-binding.md`).
+     prefixed with `<claimMarker> status:`, edited in place, never re-posted (**Notification budget**
+     in `references/tracker-binding.md`). No other comment may use that prefix — the skip comment
+     above is `<claimMarker>: …`, not `<claimMarker> status: …`.
    - **Invariant: a claimed item never *silently* returns to QUEUED** — it exits to a PR
      (→ `IN_REVIEW`, or stays `CLAIMED` if that state isn't mapped), to NEEDS_HUMAN, or — only via the
      **Blocked protocol** — back to QUEUED carrying the `triage-blocked` label + a reason comment.

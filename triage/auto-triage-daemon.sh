@@ -49,6 +49,43 @@ alert(){ # $1=title $2=message
   osascript -e "display notification \"$m\" with title \"$t\"" >/dev/null 2>&1 || true
 }
 
+# The reaper's candidate set, decided HERE and never by the model. Asking a cheap model "which
+# tickets are stale claims" is what let a ticket that had never been claimed collect 8 identical
+# "returning to queue for retry" comments: it matched on the bot comment prefix, and re-queuing an
+# already-QUEUED ticket changes nothing, so the trigger never cleared. Current state and state
+# transitions are facts — read them from the tracker's API. Linear only (the one tracker this daemon
+# can query without a model); echoes a JSON array of {id,claimedSince,failedAttempts}.
+#   rc 0 = array echoed (may be []) · rc 1 = query failed, skip the reaper this tick ·
+#   rc 2 = not applicable, let the skill discover candidates itself.
+linear_stale_claims(){ # $1=project root $2=stale minutes
+  local cfg="$1/.claude/auto-triage.config.json" mins="$2"
+  [ -n "${LINEAR_API_KEY:-}" ] && [ -f "$cfg" ] || return 2
+  [ "$(jqr '.trackers.linear.enabled // false' "$cfg")" = "true" ] || return 2
+  local team proj claimed queued filter body resp out cutoff
+  team=$(jqr '.trackers.linear.scope.team // empty' "$cfg")
+  proj=$(jqr '.trackers.linear.scope.project // empty' "$cfg")
+  claimed=$(jqr '.trackers.linear.states.CLAIMED // empty' "$cfg")
+  queued=$(jqr '.trackers.linear.states.QUEUED // empty' "$cfg")
+  [ -n "$team" ] && [ -n "$claimed" ] && [ -n "$queued" ] || return 2
+  filter=$(jq -nc --arg team "$team" --arg proj "$proj" --arg st "$claimed" \
+    '{team:{name:{eq:$team}},state:{name:{eq:$st}}} + (if $proj=="" then {} else {project:{name:{eq:$proj}}} end)')
+  body=$(jq -nc --argjson filter "$filter" '{query:"query($filter:IssueFilter!){issues(first:50,filter:$filter){nodes{identifier history(last:50){nodes{createdAt fromState{name} toState{name}}}}}}",variables:{filter:$filter}}')
+  resp=$(printf '%s' "$body" | curl -sS --max-time 30 -X POST https://api.linear.app/graphql \
+    -H 'Content-Type: application/json' -H "Authorization: $LINEAR_API_KEY" --data @-) || return 1
+  printf '%s' "$resp" | jq -e '.data.issues.nodes' >/dev/null 2>&1 || return 1
+  cutoff=$(( $(date +%s) - mins * 60 ))
+  # claimedSince = the latest transition INTO the claimed state; failedAttempts = CLAIMED->QUEUED
+  # transitions. An item whose claim entry we cannot see (history paged out) is left alone.
+  out=$(printf '%s' "$resp" | jq -c --arg cl "$claimed" --arg qu "$queued" --argjson cutoff "$cutoff" '
+    [ .data.issues.nodes[]
+      | { id: .identifier,
+          claimedSince: ([ .history.nodes[] | select(.toState.name == $cl) | .createdAt ] | max),
+          failedAttempts: ([ .history.nodes[] | select(.fromState.name == $cl and .toState.name == $qu) ] | length) }
+      | select(.claimedSince != null)
+      | select((.claimedSince | sub("\\.[0-9]+Z$"; "Z") | fromdateiso8601) <= $cutoff) ]') || return 1
+  printf '%s' "$out"
+}
+
 # deterministic detection (in the loop) decides a ticket is blocked; this records it on the item's
 # OWN tracker via the tracker-agnostic `triage-block` skill (Linear, GitHub, … — the skill binds it,
 # never hardcoded here). Idempotent: label `triage-blocked` + return to Todo + one reason comment.
@@ -306,7 +343,18 @@ if [ "$(jqr '.reaper.enabled // true' "$CFG")" = "true" ]; then
     enabled=$(jqr ".projects[$p].enabled" "$CFG")
     [ "$enabled" = "true" ] && [ -d "$root" ] || continue
     rout="$LOGDIR/${name}.cleanup.json"
-    run_claude "$root" "/triage-cleanup $STUCK $MAXATT" "$CHEAP_MODEL" "$REAP_USD" "$rout" "$LOGDIR/${name}.err"
+    CANDS=$(linear_stale_claims "$root" "$STUCK"); crc=$?
+    if [ "$crc" = "1" ]; then
+      dlog "$name reaper skipped: could not read stale claims from tracker"; continue
+    elif [ "$crc" = "0" ]; then
+      # nothing stale -> don't even spend a model call, and no chance of a spurious write
+      [ "$(printf '%s' "$CANDS" | jq 'length')" = "0" ] && { dlog "$name reaper: no stale claims"; continue; }
+      dlog "$name reaper candidates: $CANDS"
+      PROMPT="/triage-cleanup $STUCK $MAXATT $CANDS"
+    else
+      PROMPT="/triage-cleanup $STUCK $MAXATT"
+    fi
+    run_claude "$root" "$PROMPT" "$CHEAP_MODEL" "$REAP_USD" "$rout" "$LOGDIR/${name}.err"
     reaped=$(result_json "$rout" | jq -rc '.reaped // []' 2>/dev/null)
     [ -n "$reaped" ] && [ "$reaped" != "[]" ] && dlog "$name reaped: $reaped"
     reconciled=$(result_json "$rout" | jq -rc '.reconciled // []' 2>/dev/null)
