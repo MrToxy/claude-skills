@@ -124,6 +124,28 @@ Fogged work outlives its context window by definition — probes take turns, and
 each finding changes what the next question even is. So the session is not the
 unit of work. The map is.
 
+**Effort** — one fogged destination, held on one map, taking however many
+contexts it takes. It is the thing `.sight/<effort>/` is named for.
+
+```
+effort    tenant-isolation        one destination, one MAP.md, one board
+  row     "schema or RLS?"        one question, one context, one finding
+    probe p99 within 15%?         one timebox, one decision rule
+```
+
+Its boundary is the destination — not a ticket, not a sprint, not a session.
+Two questions belong to the same effort when resolving one changes what the
+other asks. If two maps would never need to reference each other, they're two
+efforts.
+
+| Too small | Right | Too big |
+|---|---|---|
+| one question — that's a row, or just `/probe` | one thing you can't yet see the end of | a roadmap — several destinations, so several maps |
+
+Name it for the destination, not the feature: `tenant-isolation`, not `phase-2`.
+Phases are your boundaries and they move; the destination is what the user
+recognises a year later.
+
 Layout, or the equivalent on whatever tracker the repo uses:
 
 ```

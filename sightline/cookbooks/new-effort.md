@@ -58,10 +58,19 @@ just moves the work back to the user. Don't present a locked one either.
 
 Render one table and nothing else:
 
-| # | Question | Cost if wrong | Resolve by | When |
-|---|----------|---------------|------------|------|
+| # | Question | What stops without it | Cost if wrong | Resolve by | When |
+|---|----------|-----------------------|---------------|------------|------|
 
-- **Cost if wrong** — cheap / annoying / structural.
+- **What stops without it** — fill this in **first**, before the other columns,
+  and name a concrete thing in the first slice: *"the tool's key enum"*, *"the
+  return type"*, *"the migration's column list"*. Not a worry — a thing that
+  cannot be written.
+  - can't name one → the row is **DEFER**. Not a judgement call; the empty cell
+    is the verdict.
+  - writing *"we'd have to guess"* → also DEFER. A guess you can revise later
+    isn't a blocker, it's a default.
+- **Cost if wrong** — cheap / annoying / structural. This orders the `now` rows.
+  It does **not** decide which rows are `now`; the previous column already did.
 - **Resolve by** — ASK (the user knows, it just never came up — send it back to
   the interview), RESEARCH (the answer exists but is deeper than Phase 0 went),
   PROBE (nobody knows until something is built), DEFER (a real decision, but
@@ -69,20 +78,19 @@ Render one table and nothing else:
 - **When** — now, or the trigger that will force it (`when the second tenant
   lands`, `when a job first fails mid-run`).
 
-Push hard on DEFER. Most fogged questions are deferrable, and shrinking what has
-to be decided today is most of this table's value. Three resolved decisions and
-nine dated triggers beats twelve guesses.
+The column order is the whole mechanism. Asked cost-first, *cheap* reads as
+permission to settle a row in one line, and four rows out of eight went that way
+on the first real run — measures, caps, ordering, rendering, none of them
+blocking anything. Cheapness attracts resolution. Asking what stops first gives
+the cheap rows nothing to fill in.
 
-**A row is `now` only if the first slice cannot ship without it.** Cheap-to-answer
-is not a reason to answer. If you can picture the tracer shipping with the
-question still open, it is DEFER, and the trigger is whatever will make it stop
-being shippable.
+It cuts the other way too, which is the part worth trusting: on that same effort
+a row filed as DEFER (*"month bucket — which date, whose timezone"*) turned out
+to hold two questions. **Which date column** stops the SQL from being written and
+was `now`; **whose timezone** stops nothing and stays deferred. A row that can't
+name one clean blocker is often two rows.
 
-This is the rule that gets broken, and cost-if-wrong is what breaks it: a row
-marked *cheap* reads as an invitation to settle it in one line. Four rows out of
-eight went that way on the first real run — measures, caps, ordering, rendering,
-none of them blocking anything. Cheapness attracts resolution. Answer the two
-that block; date the rest.
+Three resolved decisions and nine dated triggers beats twelve guesses.
 
 Have the user correct the triage before resolving anything. Their moves between
 rows are the most informative signal in the session — a question you filed as
