@@ -1,0 +1,245 @@
+---
+name: sightline
+description: Handle the parts of a plan that can't be decided by talking — answer every question the PRD, prompt, or codebase can already settle, then resolve what's genuinely unknowable with timeboxed probes and manipulable prototypes, gating progress on the user actually understanding what was decided. Keeps its map and findings on disk so an effort can span many context resets. Use this alongside or inside an interview-based planning skill (grilling, grill-with-docs, plan-with-docs) whenever the user answers "I don't know yet", says a plan feels premature, says they need to prototype first, says they don't understand what the agent produced, or when the work is too big for one session. Also use it when a previous plan turned out to be wrong once building started, or to resume a fogged effort already underway.
+---
+
+# Sightline
+
+Plan only as far as you can see. Then go look further.
+
+## Where this sits
+
+This is not an interview skill. `/plan-with-docs` runs the interview in this
+repo; sightline is the handler for the questions that interview cannot resolve.
+
+- **Interview skills** (`/plan-with-docs` here; `/grilling`, `/grill-with-docs`
+  elsewhere) assume the answer is in the user's head and press until it comes
+  out.
+- **Wayfinder-style mapping** assumes the answer is a decision someone can make
+  once the question is framed well enough.
+- **Sightline** owns the third case: nobody knows yet, and no amount of framing
+  or pressing will change that. The answer has to be built before it can be
+  known.
+
+Sightline is standalone, and runs across many contexts. The interview is one
+session ending in a plan file, so it cannot host an effort that outlives its own
+context. The seam:
+
+```
+one unknowable question   → /probe, inline, interview resumes on the 4-liner
+the destination is fogged → stop the interview, run /sightline, come back with
+                            ADRs + glossary + findings, which /plan-with-docs
+                            already loads as constraints
+```
+
+So invoke it two ways: as a **sidecar** — the interview stalls and hands the
+whole area here — or as the **front door** when the work is fogged from the
+start.
+
+The failure this exists to prevent: an interview designed to resolve every
+branch of the design tree, meeting a branch that cannot be resolved by talking,
+and extracting a guess anyway. The guess then reads exactly like a decision in
+the resulting plan. Everything downstream inherits it, and nobody remembers it
+was invented under pressure.
+
+The second failure: a long, thorough plan the user approved without holding.
+They then can't participate — can't spot the wrong turn, can't come up with the
+next idea, because they lack the concepts to think with. Understanding is not
+verification. Optimise for their ability to keep steering.
+
+## What to read next
+
+This file is the spine — invariants, disk layout, the turn loop, how to talk.
+The procedures are loaded on demand, because a session works **one row** and
+shouldn't be carrying the other five phases while it does.
+
+| You are | Read |
+|---|---|
+| resuming — `.sight/` exists | `sight resume`, then [cookbooks/resolve-row.md](cookbooks/resolve-row.md) |
+| starting fogged work, nothing on disk | [cookbooks/new-effort.md](cookbooks/new-effort.md) |
+| holding a finding that settled something | [cookbooks/land.md](cookbooks/land.md) |
+| looking at a board, or the user drew one | [cookbooks/board.md](cookbooks/board.md) — before anything else |
+| building, and an assumption just broke | [cookbooks/land.md](cookbooks/land.md) § re-fogging |
+
+Read one. Needing two at once usually means the row is two rows.
+
+## Commands
+
+The skill picks recipes; it never improvises shell. Each is one node script —
+`just` is convenience, not a dependency.
+
+| `sight …` | falls back to | does |
+|---|---|---|
+| `resume [effort]` | `node scripts/resume.mjs` | the only thing a fresh context reads |
+| `board <file>` | `node scripts/board-serve.mjs` | Excalidraw on localhost:3777, autosaving |
+| `add '<json>'` | `node scripts/board-add.mjs --json` | append boxes/arrows/frames, bound correctly |
+| `box` / `arrow` / `frame` | `node scripts/board-add.mjs …` | one element at a time |
+| `ids` | `node scripts/board-add.mjs --list` | what's on the board, mine vs theirs |
+
+```
+alias sight='just --justfile <this skill>/justfile --working-directory .'
+```
+
+## Invariants
+
+1. **Don't ask the user something they can't know.** When an answer arrives with
+   a shrug, a "probably", or a restatement of your own suggestion, stop
+   collecting it. That's a probe, not an answer.
+2. **Never plan past the horizon.** The horizon is the first point where
+   building will teach you something that changes everything after it. Beyond
+   it, write named unknowns, not steps.
+3. **Probe code is throwaway and quarantined.** Never write production code
+   during a sightline session. A probe answers a question and then dies.
+4. **Every resolution produces something the user can disagree with.** A claim
+   they can only nod at is not a resolution.
+5. **The user's understanding is a gate.** If they can't explain a decision
+   back, it isn't made yet, however good it is.
+6. **The context window is not the store.** Anything that matters is on disk
+   before the turn ends. Assume this session dies without warning.
+
+## How to talk during a session
+
+Terse. Examples over description. The user does not reason in prose, and a
+paragraph explaining a data shape is strictly worse than the data shape.
+
+| Instead of | Write |
+|---|---|
+| three sentences on why the shape changed | old shape → new shape, side by side |
+| "the retry policy backs off exponentially" | `1s, 2s, 4s, 8s, give up` |
+| a paragraph on the tradeoff | table, two columns, one row per option |
+| "consider whether X should own Y" | the two type signatures, pick one |
+
+Rules:
+- Under ~60 words of prose per turn. If it needs more, it needs an artifact.
+- Every claim about behaviour gets a concrete instance next to it.
+- No preamble, no recap of what was just agreed.
+- Diagrams as text (`A --> B`) where a picture would beat words.
+
+Same for what you produce: findings, ADRs, plans. Short, exemplified,
+skimmable.
+
+## Working outside the context window
+
+Fogged work outlives its context window by definition — probes take turns, and
+each finding changes what the next question even is. So the session is not the
+unit of work. The map is.
+
+Layout, or the equivalent on whatever tracker the repo uses:
+
+```
+.sight/<effort>/
+  MAP.md              index only — never a store
+  q/<nn>-<slug>.md    one file per open question, self-contained
+  findings/<nn>.md    the 4-liner /probe returns, written the moment it ends
+  probes/<nn>-<slug>/ excluded spike code, deleted after the finding lands
+  board.excalidraw    optional, one per effort
+.sight/vendor/        excluded — 8MB excalidraw bundle, rebuilt per machine
+```
+
+The map, the questions and the findings are the effort — they belong in the
+repo so it survives a laptop. The two things that don't:
+
+```
+printf '.sight/probes/\n.sight/*/probes/\n.sight/vendor/\n' >> .git/info/exclude
+```
+
+**MAP.md** stays under roughly 60 lines whatever the size of the effort, because
+every resumed session reads it in full. It holds: the destination, the horizon,
+the triage table with a one-line status per row, and a pointer to the current
+row. It never restates a finding — it links to it. If the map is growing, you're
+storing in it.
+
+**Question files** carry everything needed to work that row cold: the question,
+why it's open, what Phase 0 already ruled out, the probe plan, the timebox. A
+fresh session should be able to open one file and start work without reading
+the others. This is what lets the effort be arbitrarily large — the map scales,
+the working set doesn't.
+
+Two machine-read conventions, because resuming is a script, not a habit:
+
+```
+MAP.md              → current: q/07-schema-vs-rls.md      one line, literal
+
+q/07-….md frontmatter
+  touched: 2026-08-04          the day this row's Phase 0 answers were true
+  paths: src/db src/auth.ts    what the question depends on (optional)
+```
+
+Update `touched:` whenever you work the row. It is what makes staleness
+detectable across days.
+
+### The turn loop
+
+Work one row per context. At the end of every row, before anything else:
+
+1. Land the finding (`Q / Tried / Found / Decides`) and delete the spike.
+2. Update that row's status in MAP.md, move `→ current:`, and stamp `touched:`
+   on every row you looked at — including ones you left open.
+3. Land the ADR or glossary change if the finding earned one.
+4. Tell the user the context is now safe to clear.
+
+Then clear. Carrying a resolved row's detail into the next row costs context and
+buys nothing — the finding is the compression.
+
+### ASK rows are batched, never serialized
+
+One row per context is a budget on *context*. It does not apply to questions the
+user answers from their head: those cost nothing to carry and no finding changes
+them. Serializing them just spends one interruption each.
+
+| Row type | Rhythm |
+|---|---|
+| ASK | every open one at once, four at a time, each with your recommended answer |
+| RESEARCH / PROBE | one per context; pointer moves, the finding compresses |
+| DEFER | not asked at all until its trigger fires |
+
+So **an ASK row never holds `→ current:`** — the pointer is for work, and an ASK
+is not work, it's a message. Park the pointer on the next PROBE or RESEARCH row
+and carry the ASKs as a pending batch.
+
+New ASKs discovered mid-row join that batch. Don't interrupt the row for them,
+and don't open a session just to ask one.
+
+### Resuming
+
+An effort spans days, machines, and any number of contexts. So resuming is one
+deterministic command, not a reading habit:
+
+```
+node scripts/resume.mjs [effort]
+```
+
+It prints MAP.md, the current row's file, what moved in the repo since that row
+was `touched:`, and one `Decides:` line per finding. That output is the whole
+working set. Read nothing else — not the finished question files, not the old
+probe dirs. If you need what a closed row concluded, its `Decides:` line is
+already in front of you.
+
+Then, before any work: **the repo may have moved under this row.** Commits in
+the `MOVED SINCE` block invalidate that row's Phase 0 answers — re-check those
+first, or you'll probe a question the codebase has already closed. Empty block,
+nothing to do.
+
+State in three lines where things stand and what's next, then continue. Do not
+re-derive the triage and do not re-ask resolved questions.
+
+(No node? Do it by hand in that exact order, and stop where the script stops.)
+
+If the effort is large enough that even the triage table strains the map, split
+it: one map per horizon, and the deferred rows carry forward to the next map
+when their trigger fires. Fog is layered, so plan in layers.
+
+## Anti-patterns
+
+- Re-running the interview. `/plan-with-docs` already did that better; take its
+  leftovers.
+- Producing a complete plan on the first pass. Completeness this early is a
+  symptom, not an achievement.
+- Pressing a PROBE question until the user answers it. That launders a guess
+  into a requirement.
+- Letting a probe become the implementation because it worked.
+- Skipping the understanding gate because the user is in a hurry. The hurry is
+  why the gate exists.
+- Writing the piece the user reserved for themselves. Fastest is not the job.
+- Explaining a decision by restating the code. Background first, then intuition,
+  then mechanism.

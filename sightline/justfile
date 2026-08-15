@@ -1,0 +1,42 @@
+# sightline — the deterministic command surface.
+# Every recipe is one a human could type; the skill picks recipes, never raw shell.
+#
+#   just --justfile ~/Documents/Development/claude-skills/sightline/justfile --working-directory . resume
+#   alias sight='just --justfile ~/Documents/Development/claude-skills/sightline/justfile --working-directory .'
+#   sight resume
+#
+# `just` optional: every recipe is one `node scripts/<x>.mjs` line you can run directly.
+
+sl := justfile_directory() / "scripts"
+
+_default:
+    @just --justfile "{{justfile()}}" --list --unsorted
+
+# what a fresh context reads: MAP + current row + what moved + findings
+resume effort="":
+    @node "{{sl}}/resume.mjs" {{effort}}
+
+# open the board — localhost:3777, autosaves to the file
+board file=".sight/board.excalidraw":
+    @node "{{sl}}/board-serve.mjs" "{{file}}"
+
+# every id on the board, mine (sl-) vs theirs
+ids:
+    @node "{{sl}}/board-add.mjs" --list
+
+# add a box:  sight box "Queue" --at 0,0
+box +args:
+    @node "{{sl}}/board-add.mjs" box {{args}}
+
+# add an arrow between two boxes, by label or id:  sight arrow Queue Worker --label events
+arrow from to *args:
+    @node "{{sl}}/board-add.mjs" arrow "{{from}}" "{{to}}" {{args}}
+
+# frame a horizon around existing boxes:  sight frame "07 — tenant isolation" Queue,Worker
+frame name contains="":
+    @node "{{sl}}/board-add.mjs" frame "{{name}}" --contains "{{contains}}"
+
+# a whole flow in one call — the shape the agent should use
+#   sight add '[{"box":"Queue","at":[0,0]},{"box":"Worker"},{"arrow":["Queue","Worker"]}]'
+add json:
+    @node "{{sl}}/board-add.mjs" --json '{{json}}'
