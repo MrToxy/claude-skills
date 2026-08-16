@@ -57,7 +57,7 @@ shouldn't be carrying the other five phases while it does.
 |---|---|
 | resuming — `.sight/` exists | `sight resume`, then [cookbooks/resolve-row.md](cookbooks/resolve-row.md) |
 | starting fogged work, nothing on disk | [cookbooks/new-effort.md](cookbooks/new-effort.md) |
-| holding a finding that settled something | [cookbooks/land.md](cookbooks/land.md) |
+| holding a finding, or out of `now` rows | [cookbooks/land.md](cookbooks/land.md) — horizon check first, then the plan |
 | looking at a board, or the user drew one | [cookbooks/board.md](cookbooks/board.md) — before anything else |
 | building, and an assumption just broke | [cookbooks/land.md](cookbooks/land.md) § re-fogging |
 
