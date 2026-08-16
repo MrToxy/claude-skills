@@ -119,5 +119,5 @@ Rewriting the whole file is expensive and destroys their layout — append near
 the relevant element instead, and say in the chat what you added.
 
 No board? A dropped photo or screenshot of one still works as input; the
-round-trip doesn't. Offer to start a board when a decision has more than three
-moving parts.
+round-trip doesn't. When to offer one is in SKILL.md — that list has to live
+where it's read before a board exists, or it can never fire.

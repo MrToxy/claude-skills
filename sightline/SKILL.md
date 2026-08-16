@@ -58,10 +58,28 @@ shouldn't be carrying the other five phases while it does.
 | resuming — `.sight/` exists | `sight resume`, then [cookbooks/resolve-row.md](cookbooks/resolve-row.md) |
 | starting fogged work, nothing on disk | [cookbooks/new-effort.md](cookbooks/new-effort.md) |
 | holding a finding, or out of `now` rows | [cookbooks/land.md](cookbooks/land.md) — horizon check first, then the plan |
-| looking at a board, or the user drew one | [cookbooks/board.md](cookbooks/board.md) — before anything else |
+| looking at a board, the user drew one, or one is worth offering | [cookbooks/board.md](cookbooks/board.md) — before anything else |
 | building, and an assumption just broke | [cookbooks/land.md](cookbooks/land.md) § re-fogging |
 
 Read one. Needing two at once usually means the row is two rows.
+
+### When to offer a board
+
+The user will rarely ask. Offer at these moments — one line, then carry on in
+text whether or not they take it:
+
+| Moment | Why |
+|---|---|
+| a question is about **shape** — what talks to what, ordering, what crosses a boundary — and the text form needs more than ~6 nodes | `A --> B` stops being readable exactly when the arrows start crossing |
+| they're answering a structural question and stall, or say "hard to explain" | drawing is faster than typing, for them |
+| a probe changed the structure | show it as a diff on the board, not as a paragraph about the change |
+| the horizon check is structural | the reconstruction they owe you can *be* the board |
+| a new effort whose destination is a system, not a value | frames per horizon give the whole effort one picture |
+
+Offer, never open. Never wait for them to look, never answer with "see the
+board", and never let a board be the only place something is said. The board is
+one board per effort — that *is* the general view, so there is no second one to
+build.
 
 ## Commands
 
