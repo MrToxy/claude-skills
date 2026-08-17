@@ -16,7 +16,8 @@ _default:
 resume effort="":
     @node "{{sl}}/resume.mjs" {{effort}}
 
-# open the board — localhost:3777, autosaves to the file
+# open the board — localhost:3777, autosaves, and prints what they draw.
+# run it under Monitor (persistent): stdout is the change feed, not a log.
 board file=".sight/board.excalidraw":
     @node "{{sl}}/board-serve.mjs" "{{file}}"
 

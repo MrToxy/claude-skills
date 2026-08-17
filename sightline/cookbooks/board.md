@@ -57,6 +57,55 @@ sight board .sight/<effort>/board.excalidraw    # → localhost:3777, autosaves
 Boxes are referenced by label, so you never track ids. `board-add.mjs` refuses
 to reframe an element that isn't `sl-` prefixed.
 
+## Serving it — always watched
+
+The board is live in both directions, so `board` is armed with `Monitor`,
+`persistent: true`, never plain background bash:
+
+```
+Monitor(command: 'node <this skill>/scripts/board-serve.mjs .sight/<effort>/board.excalidraw',
+        description: 'board — <effort>', persistent: true)
+```
+
+Spell out the `node` path here — `sight` is a shell alias and Monitor runs
+non-interactively, where it doesn't exist.
+
+- **you → them.** `sight add` while the tab is open reaches it within a second.
+  The merge is by id and append-only, so it cannot move, resize, or undo what
+  they are drawing at that moment — even mid-drag.
+- **them → you.** Their tab saves on a 400ms debounce; the change block waits a
+  further 3s of no edits. That window is the point: a box, its label and its
+  arrow are one thought, and arrive as one block, not three. Your own appends
+  never come back to you.
+
+```
+board: 2 changes — .sight/tenant-isolation/board.excalidraw
+  + THEIRS rectangle "Retry queue"   (no inbound arrow)
+  ~ THEIRS arrow     "events"  label: (none) → "events"
+```
+
+`THEIRS` / `mine` is the `sl-` prefix. Marks are `+` added, `-` deleted, `~`
+changed — label, binding, frame, or `moved +300,+120`. Position is reported
+because layout carries meaning (grouping, ordering); jitter under 20px is not.
+The two parenthesised flags are gap-mining signal — read them straight into the
+question table below.
+
+`SETTLE=8000` for someone who draws in long bursts. No `Monitor` in the harness:
+run `board` with `run_in_background` and read the task output at the top of each
+turn — same blocks, later.
+
+**A change block is not an interrupt.** It arrives mid-row, and one row per
+context still holds:
+
+| What arrived | What you do |
+|---|---|
+| structure that contradicts the row you're on | say so now, in one line — it may end the probe early |
+| a `?`, a scribble, an unlabelled edge | new Phase 0 question or a PROBE row; goes on the map, not into this turn |
+| anything else | acknowledge in one line, carry on |
+
+Never reply to a change block with a redrawn board, and never treat drawing as
+an answer to the question you last asked in chat — ask whether it was.
+
 Setup, once per repo, only if you want the board offline:
 
 ```

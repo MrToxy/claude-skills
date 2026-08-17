@@ -81,6 +81,10 @@ board", and never let a board be the only place something is said. The board is
 one board per effort — that *is* the general view, so there is no second one to
 build.
 
+If they take it, it is live from that moment: what they draw reaches you three
+seconds after they stop, and what you add reaches their open tab. Still don't
+wait on it — they may draw nothing, and the conversation carries on regardless.
+
 ## Commands
 
 The skill picks recipes; it never improvises shell. Each is one node script —
@@ -89,7 +93,7 @@ The skill picks recipes; it never improvises shell. Each is one node script —
 | `sight …` | falls back to | does |
 |---|---|---|
 | `resume [effort]` | `node scripts/resume.mjs` | the only thing a fresh context reads |
-| `board <file>` | `node scripts/board-serve.mjs` | Excalidraw on localhost:3777, autosaving |
+| `board <file>` | `node scripts/board-serve.mjs` | Excalidraw on localhost:3777, autosaving, two-way |
 | `add '<json>'` | `node scripts/board-add.mjs --json` | append boxes/arrows/frames, bound correctly |
 | `box` / `arrow` / `frame` | `node scripts/board-add.mjs …` | one element at a time |
 | `ids` | `node scripts/board-add.mjs --list` | what's on the board, mine vs theirs |
@@ -97,6 +101,19 @@ The skill picks recipes; it never improvises shell. Each is one node script —
 ```
 alias sight='just --justfile <this skill>/justfile --working-directory .'
 ```
+
+`board` is never run as a plain background command — always under `Monitor`,
+`persistent: true`. Its stdout is a change feed, not a log: three seconds after
+they stop drawing, one block arrives naming what changed. Serving a board
+without watching it is the old one-way board, and wastes the thing they drew.
+
+```
+you  sight add …  ──→ file ──→ their open tab updates, mid-drag and all
+they draw         ──→ file ──→ 3s quiet ──→ "board: 2 changes …" in your chat
+```
+
+Mechanics, and what a change block obliges you to do:
+[cookbooks/board.md](cookbooks/board.md).
 
 ## Invariants
 
