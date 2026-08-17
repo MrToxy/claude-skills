@@ -84,7 +84,11 @@ resolve_transcript(){ # $1 = ticket or ""
 # state is in a container volume). `last` = scheduler.out.log mtime (touched every fire, success or not).
 schedule_line(){
   local label plist log int last now next
-  if [ "$CMODE" = 1 ]; then label=com.auto-triage-container; else label=com.auto-triage; fi
+  # pick the label from how the machine is CONFIGURED ($VOL set ⇒ container path), not from CMODE —
+  # CMODE is 0 whenever Docker is merely down, and reading the legacy label then reports the
+  # container agent as "not scheduled" when it is in fact armed and ticking (and failing on Docker).
+  if [ -n "$VOL" ]; then label=com.auto-triage-container; else label=com.auto-triage; fi
+  [ -n "$VOL" ] && [ "$CMODE" = 0 ] && echo "  ⚠ docker down — container state unreachable; run: triagectl up"
   plist="$HOME/Library/LaunchAgents/$label.plist"
   [ -f "$plist" ] || { echo "  (no $label.plist — not scheduled)"; return; }
   launchctl list 2>/dev/null | grep -q "$label" || { echo "  $label not loaded (disarmed)"; return; }
