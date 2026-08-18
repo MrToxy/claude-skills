@@ -111,5 +111,45 @@ map. No turn loop runs for an ASK row, so this is the only thing standing
 between four answers and a dead context. The batch isn't done until it's on
 disk.
 
+### Scenarios — for the ASKs they can't judge
+
+A recommendation costs nothing to accept, and accepting it teaches nothing. When
+the options differ in ways they have no vocabulary for, or they stall, or they
+take your recommendation instantly, put the same question as two everyday
+situations and let them choose between consequences instead of between names:
+
+```
+Two doors, same building. You're picking which one to run.
+
+  A  On the way in, the bouncer hands you a signed wristband. Every door
+     reads the band and lets you through. Nobody phones anyone.
+       · someone finds your dropped band — they're you, until it expires
+       · you're barred at 9pm; your band says 11pm. You're in until 11.
+
+  B  The bouncer writes you into a book at the front desk. Every door
+     phones the desk before opening.
+       · barred at 9pm means barred at 9:01, at every door
+       · the desk goes down, every door is shut
+
+Which building do you want to run?
+```
+
+Only once they've picked: *"A is a JWT, B is a server session — you chose
+revocation lag over availability coupling."*
+
+Four rules, because a bad scenario is worse than a bare recommendation: it
+manufactures the feeling of understanding.
+
+| Rule | Why |
+|---|---|
+| symmetric — same number of consequences each, and each option gets one that **hurts** | an asymmetric scenario is your recommendation in a costume |
+| no technology named until after they pick | the name recruits their priors, and "the modern one" answers it for them |
+| map the pick back the same turn — what they chose, and what it costs | otherwise they answered about wristbands, not about auth |
+| one scenario per question, then it dies | extended metaphors drift, and start generating implications the system doesn't have |
+
+If no everyday situation carries the property the decision actually turns on,
+the row was never an ASK. Demote it to PROBE rather than inventing a scenario
+that carries something else.
+
 Only once the ASKs are answered does the pointer go to the first PROBE or
 RESEARCH row.

@@ -130,8 +130,9 @@ Never answer a drawing with a redraw. Fuller mechanics:
 
 1. **Don't ask the user something they can't know.** When an answer arrives with
    a shrug, a "probably", a restatement of your own suggestion, or an instant
-   yes to your recommendation, stop collecting it. That's a probe, not an
-   answer — put it back on the map as one.
+   yes to your recommendation, stop collecting it. Re-put it as a scenario
+   (below); if that still draws a shrug, it's a probe, not an answer — onto the
+   map as one.
 2. **Never plan past the horizon.** The horizon is the first point where
    building will teach you something that changes everything after it. Beyond
    it, write named unknowns, not steps.
@@ -271,6 +272,33 @@ blocked on the batch — not at its horizon. Don't land a plan over it.
 
 New ASKs discovered mid-row join that batch. Don't interrupt the row for them,
 and don't open a session just to ask one.
+
+#### When they can't judge the options, ask it as a scenario
+
+A recommendation is the cheapest thing in the world to accept, and accepting it
+teaches them nothing about why. Two observable triggers:
+
+```
+the options differ in ways they have no vocabulary for   → scenario
+they stall, or take your recommendation instantly        → scenario
+```
+
+Put the choice as two everyday situations with their real consequences, name no
+technology until after they pick, then map their pick back to what it costs.
+Worked example and the rules that keep it honest:
+[cookbooks/new-effort.md](cookbooks/new-effort.md) § scenarios.
+
+```
+detect   instant yes, a shrug, a stall
+reframe  the same question as a scenario, symmetric, tech unnamed
+         they pick and can say what it costs   → the answer stands
+         still a shrug                         → PROBE, onto the map
+```
+
+This is not the quiz `land.md` rejects. A quiz tests recognition after a
+decision exists; a scenario is what makes the decision answerable before it
+does. If no everyday situation carries the property the decision turns on, it
+was never an ASK — demote it.
 
 ### Resuming
 
