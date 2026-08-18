@@ -5,7 +5,7 @@
 #   triagectl resume [project]       resume
 #   triagectl abandon <ticket|proj>  kill that ticket's run (or all of a project's); daemon acts ~5s
 #   triagectl clear-abandon          empty the abandon list
-#   triagectl stop                   pause all + kill anything running now
+#   triagectl stop                   full stop: disarm launchd + pause all + kill running
 #   triagectl budget [pct]           show or set the 5h-window hold threshold (e.g. budget 80)
 #   triagectl run [--force]          run one tick now (foreground); --force bypasses the budget gate
 #   triagectl watch [ticket]         live-tail a running ticket's agent transcript (or the latest)
@@ -25,6 +25,14 @@ STATE="$DAEMON_DIR/state.json"
 CFG="$DAEMON_DIR/daemon.config.json"
 VOL="${TRIAGE_STATE_VOLUME-auto-triage_triage-state}"
 HELPER_IMG="${TRIAGE_HELPER_IMG:-alpine:latest}"
+
+# The launchd agent that fires the ticks. Pick the label from how the machine is CONFIGURED ($VOL set
+# ⇒ container path), not from CMODE — CMODE is 0 whenever Docker is merely down, and reading the
+# legacy label then reports the container agent as "not scheduled" when it is in fact armed and
+# ticking (and failing on Docker). `schedule_line`, `stop` and `up` all steer by these three.
+if [ -n "$VOL" ]; then LABEL=com.auto-triage-container; else LABEL=com.auto-triage; fi
+PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+LDOM="gui/$(id -u)"
 
 # ── state source: container volume (active path) or host dir (legacy) ──────────────────────────
 CMODE=0
@@ -83,16 +91,11 @@ resolve_transcript(){ # $1 = ticket or ""
 # schedule: last/next launchd fire. Host-side (launchd + scheduler.out.log live on the Mac even when
 # state is in a container volume). `last` = scheduler.out.log mtime (touched every fire, success or not).
 schedule_line(){
-  local label plist log int last now next
-  # pick the label from how the machine is CONFIGURED ($VOL set ⇒ container path), not from CMODE —
-  # CMODE is 0 whenever Docker is merely down, and reading the legacy label then reports the
-  # container agent as "not scheduled" when it is in fact armed and ticking (and failing on Docker).
-  if [ -n "$VOL" ]; then label=com.auto-triage-container; else label=com.auto-triage; fi
+  local log int last now next
   [ -n "$VOL" ] && [ "$CMODE" = 0 ] && echo "  ⚠ docker down — container state unreachable; run: triagectl up"
-  plist="$HOME/Library/LaunchAgents/$label.plist"
-  [ -f "$plist" ] || { echo "  (no $label.plist — not scheduled)"; return; }
-  launchctl list 2>/dev/null | grep -q "$label" || { echo "  $label not loaded (disarmed)"; return; }
-  int=$(plutil -extract StartInterval raw "$plist" 2>/dev/null)
+  [ -f "$PLIST" ] || { echo "  (no $LABEL.plist — not scheduled)"; return; }
+  launchctl list 2>/dev/null | grep -q "$LABEL" || { echo "  $LABEL not loaded (disarmed)"; return; }
+  int=$(plutil -extract StartInterval raw "$PLIST" 2>/dev/null)
   log="$DAEMON_DIR/logs/scheduler.out.log"; now=$(date +%s); last=""
   [ -f "$log" ] && last=$(stat -f %m "$log" 2>/dev/null)
   [ -n "$last" ] && printf "  last tick: %s (%dm ago)\n" "$(date -r "$last" -u +%H:%MZ)" "$(( (now-last)/60 ))"
@@ -108,10 +111,16 @@ case "$cmd" in
   status)
     echo "═══ auto-triage ═══"
     if [ "$CMODE" = 1 ]; then echo "source:   container volume $VOL"; else echo "source:   host $DAEMON_DIR"; fi
+    # `paused` is read from control.json and NOWHERE else. state.json also carries one, but it is a
+    # snapshot from the last tick — after a `stop` it still says false, which read as the status
+    # contradicting itself. Print the live one, loudly, and never the stale one.
+    ctl=$(read_json control.json)
+    [ "$(printf '%s' "$ctl" | jq -r '.paused // false' 2>/dev/null)" = "true" ] \
+      && echo "⏸  PAUSED — no ticket is picked up (resume: triagectl up)"
     echo "─ schedule ─"; schedule_line
     st=$(read_json state.json)
     if [ -n "$st" ]; then
-      printf '%s' "$st" | jq -r '"updated:  \(.updated)\npaused:   \(.paused)\n5h usage: \(.fiveHourPct // "?")%  (hold ≥ \(.thresholdPct)%)   ← the budget\ndaemon used (5h): \(.daemonTokens5h // 0) tok  (~$\(.daemonSpend5hUsd // 0))"' 2>/dev/null
+      printf '%s' "$st" | jq -r '"updated:  \(.updated)\n5h usage: \(.fiveHourPct // "?")%  (hold ≥ \(.thresholdPct)%)   ← the budget\ndaemon used (5h): \(.daemonTokens5h // 0) tok  (~$\(.daemonSpend5hUsd // 0))"' 2>/dev/null
       echo "─ running ─"
       printf '%s' "$st" | jq -r '(.running // []) | if length==0 then "  (idle)" else (.[] | "  • \(.ticket // "?")  (\(.project))  pid \(.pid)  \(.elapsedSec)s") end' 2>/dev/null
       echo "─ recent ─"
@@ -120,7 +129,7 @@ case "$cmd" in
       echo "(no state yet — daemon hasn't run)"
     fi
     echo "─ control ─"
-    printf '%s' "$(read_json control.json)" | jq -r '"  paused: \(.paused)\n  pausedProjects: \((.pausedProjects // [])|join(", "))\n  abandon: \((.abandon // [])|join(", "))"' 2>/dev/null || echo "  (none)"
+    printf '%s' "$ctl" | jq -r '"  paused: \(.paused)\n  pausedProjects: \((.pausedProjects // [])|join(", "))\n  abandon: \((.abandon // [])|join(", "))"' 2>/dev/null || echo "  (none)"
     ;;
   pause)
     if [ -n "$arg" ]; then set_ctl "(.pausedProjects // []) |= (. + [\"$arg\"] | unique)"; echo "paused project: $arg";
@@ -134,6 +143,19 @@ case "$cmd" in
   clear-abandon)
     set_ctl ".abandon = []"; echo "cleared abandon list" ;;
   stop)
+    # A full stop, the exact inverse of `up`: disarm the scheduler AND pause the pipeline AND drop
+    # whatever is running. Each half alone leaks — disarming only, and the plist's RunAtLoad fires a
+    # fresh tick at the next login; pausing only, and the agent still wakes every 15m. `disable` is
+    # the half that survives a reboot, so `up` pairs with an `enable`.
+    if [ -f "$PLIST" ]; then
+      launchctl bootout "$LDOM/$LABEL" 2>/dev/null
+      launchctl disable "$LDOM/$LABEL" 2>/dev/null
+      if launchctl print "$LDOM/$LABEL" >/dev/null 2>&1; then
+        echo "✗ $LABEL still loaded — disarm by hand: launchctl bootout $LDOM/$LABEL"
+      else
+        echo "✓ $LABEL disarmed + disabled (survives reboot)"
+      fi
+    fi
     set_ctl ".paused = true"
     st=$(read_json state.json)
     if [ "$CMODE" = 1 ]; then
@@ -158,10 +180,7 @@ case "$cmd" in
     # one command to bring the scheduler back after a reboot / Docker restart: ensure the Docker
     # engine is up, arm the launchd agent, and fire a tick now. Idempotent — safe to run anytime;
     # triage-all's mkdir-lock makes a double-fire a no-op.
-    label=com.auto-triage-container
-    plist="$HOME/Library/LaunchAgents/$label.plist"
-    [ -f "$plist" ] || { echo "✗ $plist missing — install it from triage/com.auto-triage-container.plist.example first"; exit 1; }
-    dom="gui/$(id -u)"
+    [ -f "$PLIST" ] || { echo "✗ $PLIST missing — install it from triage/$LABEL.plist.example first"; exit 1; }
     # 1 ─ Docker engine
     if docker info >/dev/null 2>&1; then echo "✓ docker already up"; else
       echo "• starting Docker Desktop…"; open -a Docker 2>/dev/null || { echo "✗ couldn't launch Docker.app"; exit 1; }
@@ -169,17 +188,26 @@ case "$cmd" in
       while [ "$i" -lt 60 ] && ! docker info >/dev/null 2>&1; do printf "."; sleep 2; i=$((i+1)); done; echo
       docker info >/dev/null 2>&1 && echo "✓ docker up" || { echo "✗ engine didn't come up in ~2m — rerun once Docker Desktop finishes booting"; exit 1; }
     fi
-    # 2 ─ launchd agent armed. bootstrap ⇒ RunAtLoad fires the first tick right away; if already
-    #     armed (e.g. only Docker restarted), kickstart one now instead of waiting up to 15m.
-    if launchctl list 2>/dev/null | grep -q "$label"; then
-      echo "✓ $label already armed"
-      launchctl kickstart "$dom/$label" 2>/dev/null && echo "✓ tick kicked now" || echo "… next tick fires on the 15m timer"
+    # CMODE was decided at startup, when the engine was still down ⇒ 0. Re-decide now that it is up,
+    # or step 3's unpause writes the stale host control.json and the volume stays paused — an armed
+    # agent no-opping every 15m, the exact half-resume this command exists to avoid.
+    [ -n "$VOL" ] && docker volume inspect "$VOL" >/dev/null 2>&1 && CMODE=1
+    # 2 ─ launchd agent armed. `stop` leaves the label DISABLED and a disabled service refuses to
+    #     bootstrap, so always re-enable first. bootstrap ⇒ RunAtLoad fires the first tick right
+    #     away; if already armed (e.g. only Docker restarted), kickstart one now instead of waiting
+    #     up to 15m.
+    launchctl enable "$LDOM/$LABEL" 2>/dev/null
+    if launchctl list 2>/dev/null | grep -q "$LABEL"; then
+      echo "✓ $LABEL already armed"
+      launchctl kickstart "$LDOM/$LABEL" 2>/dev/null && echo "✓ tick kicked now" || echo "… next tick fires on the 15m timer"
     else
-      launchctl bootstrap "$dom" "$plist" 2>/dev/null || launchctl load "$plist" 2>/dev/null
-      launchctl list 2>/dev/null | grep -q "$label" \
-        && echo "✓ $label armed — first tick firing now (RunAtLoad)" \
-        || { echo "✗ failed to arm $label"; exit 1; }
+      launchctl bootstrap "$LDOM" "$PLIST" 2>/dev/null || launchctl load "$PLIST" 2>/dev/null
+      launchctl list 2>/dev/null | grep -q "$LABEL" \
+        && echo "✓ $LABEL armed — first tick firing now (RunAtLoad)" \
+        || { echo "✗ failed to arm $LABEL"; exit 1; }
     fi
+    # 3 ─ un-pause: `stop` set it, and an armed-but-paused agent ticks every 15m doing nothing.
+    set_ctl ".paused = false" && echo "✓ unpaused"
     echo "  watch:  tail -f $DAEMON_DIR/logs/scheduler.out.log"
     echo "  status: triagectl status"
     ;;

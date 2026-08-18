@@ -106,8 +106,9 @@ triagectl session [ticket]  # full Claude transcript of a ticket's latest run (o
 triagectl watch [ticket]    # live-tail a running ticket's agent transcript
 triagectl pause [project]   # hold all new ticks (or one project); in-flight continues
 triagectl abandon <ticket>  # kill that ticket's run now
-triagectl stop              # pause + kill everything running
+triagectl stop              # FULL STOP: disarm launchd + pause + kill everything running
 triagectl resume [project]
+triagectl up                # the inverse of stop: docker up, re-arm launchd, unpause, tick now
 ```
 **State source.** On the container path the daemon writes state, control, and session transcripts into
 the Docker volume `auto-triage_triage-state` (inside Docker Desktop's VM — no host path), so `triagectl`
@@ -147,5 +148,10 @@ tier only if verifier spend proves material.
 
 ## Disarm
 ```sh
-launchctl unload ~/Library/LaunchAgents/com.auto-triage.plist
+triagectl stop     # disarms the launchd agent (bootout + disable) AND pauses AND kills in-flight
+triagectl up       # bring it all back
 ```
+`stop` does all three on purpose. `launchctl bootout` alone is not a stop: the plist carries
+`RunAtLoad`, so the agent re-bootstraps at the next login and immediately fires a tick — hence the
+`disable`, which is the half that survives a reboot (`up` re-`enable`s). Pausing alone is not a stop
+either: the agent keeps waking every 15 min to no-op.
