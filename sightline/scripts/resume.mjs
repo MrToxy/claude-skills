@@ -28,8 +28,11 @@ if (hasBoard) {
 
 console.log(rule('MAP') + map.trim());
 
-// The pointer is a literal line in MAP.md: `→ current: q/07-slug.md`
-const pointer = map.match(/^→ current:\s*(\S+)/m)?.[1];
+// The pointer is a line in MAP.md: `→ current: q/07-slug.md`. Read it through
+// whatever markdown decoration a hand added — a missed pointer looks exactly
+// like a finished effort, and that mistake lands a plan over an open row.
+const pointer = map.match(/^\s*(?:[-*>]\s+)?\**\s*→\s*current:\s*\**\s*(\S+)/mi)?.[1]
+  ?.replace(/^[`*]+/, '').replace(/[`*]+$/, '');
 if (!pointer) {
   // No pointer means one of two very different things. Say which.
   const qs = (await readdir(join(dir, 'q')).catch(() => [])).filter((f) => f.endsWith('.md'));
@@ -49,7 +52,10 @@ if (!pointer) {
   const since = fm.touched;
   const paths = (fm.paths ?? '').split(/[,\s]+/).filter(Boolean);
   if (!since) {
-    console.log(rule('MOVED SINCE') + 'no `touched:` in the row\'s frontmatter — staleness unknown.');
+    const misplaced = row && /^touched:/m.test(row);
+    console.log(rule('MOVED SINCE') + 'no `touched:` in the row\'s frontmatter — staleness unknown.'
+      + (misplaced ? '\nThe row does say `touched:`, but outside the opening `---` fence, so it '
+        + 'was not read.\nMove it into the fence at the top of the file.' : ''));
   } else {
     const log = git(['log', '--oneline', '--since', since, '--', ...(paths.length ? paths : ['.'])]);
     console.log(rule(`MOVED SINCE ${since}${paths.length ? ` — ${paths.join(' ')}` : ' — whole repo'}`) +
