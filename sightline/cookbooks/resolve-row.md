@@ -12,7 +12,9 @@ you're already here.
 
 **RESEARCH** — go read. Return under ten lines: what's there, what it
 constrains, what surprised you. Cite files and line ranges so the user can
-follow you in.
+follow you in. Return the shape you found — call tree, file tree, the type —
+not a description of it; a paragraph about how three modules relate is the
+worst form that answer has.
 
 **PROBE** — hand the row to `/probe`. It owns the build; you own the map.
 

@@ -147,24 +147,95 @@ Never answer a drawing with a redraw. Fuller mechanics:
 
 ## How to talk during a session
 
-Terse. Examples over description. The user does not reason in prose, and a
-paragraph explaining a data shape is strictly worse than the data shape.
+Terse. Show, don't describe. The user does not reason in prose, and a paragraph
+explaining a shape is strictly worse than the shape.
 
 | Instead of | Write |
 |---|---|
-| three sentences on why the shape changed | old shape → new shape, side by side |
 | "the retry policy backs off exponentially" | `1s, 2s, 4s, 8s, give up` |
 | a paragraph on the tradeoff | table, two columns, one row per option |
 | "consider whether X should own Y" | the two type signatures, pick one |
 
-Rules:
-- Under ~60 words of prose per turn. If it needs more, it needs an artifact.
-- Every claim about behaviour gets a concrete instance next to it.
-- No preamble, no recap of what was just agreed.
-- Diagrams as text (`A --> B`) where a picture would beat words.
+### Pick the smallest view that carries the point
 
-Same for what you produce: findings, ADRs, plans. Short, exemplified,
-skimmable.
+One form per point. Two if they carry different points. Never all of them.
+
+**A rule, a policy, an algorithm** — pseudocode:
+
+```text
+on(save)
+  content unchanged → return cached
+  write, invalidate cache
+```
+
+**What calls what** — call tree:
+
+```text
+submitForm
+  createSession
+    persistPrompt
+    launchAgent
+  navigate
+```
+
+**UI shape** — component tree, carrying only the state and boundaries in
+question:
+
+```text
+<SessionPage>            routes/session.tsx
+  useSessionEvents()
+  <Toolbar>
+    <RunButton>          packages/ui
+```
+
+**Who owns what** — shallow file tree, one clause per dir:
+
+```text
+src/
+├── commands/   parses user actions
+├── sessions/   owns session state
+└── transport/  talks to the API
+```
+
+**Ordering across processes** — mermaid, when the sequence *is* the point:
+
+```mermaid
+sequenceDiagram
+  User->>UI: pick command
+  UI->>Daemon: expanded prompt
+  Daemon-->>UI: stream
+```
+
+**A change to any of the above** — a diff *in that same form*, so the unchanged
+lines carry the context:
+
+```diff
+ on(save)
+-  write content
++  content unchanged → return cached
++  write, invalidate cache
+```
+
+This is the text twin of showing a probe's result as a board diff, and it is the
+form most turns want: a probe rarely invents a shape, it moves one. Show the
+whole block instead only when most of it is new, when the omitted context would
+hide ownership or order, or when they need something copyable to write against.
+
+Rules:
+- Under ~60 words of prose per turn. Longer wants a view, not more sentences.
+- Every claim about behaviour gets a concrete instance next to it.
+- Each view sits next to the one or two lines it supports — never a wall of
+  diagrams, never a diagram with no claim attached.
+- Keep only the calls, files, props and boundaries the current question turns
+  on. Everything else is noise you are asking them to filter.
+- No preamble, no recap of what was just agreed.
+- Too dense for text — a layout, a state comparison, a side-by-side of two
+  designs — is one focused HTML file with the product's real labels and data,
+  then `open` it. Not a second board: when a board is live, structure lives
+  there.
+
+Same for what you produce: findings, ADRs, plans, the plan's `## Decided` lines.
+Short, exemplified, skimmable — the same forms, on disk.
 
 ## Working outside the context window
 
