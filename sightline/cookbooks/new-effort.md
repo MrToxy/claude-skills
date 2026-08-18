@@ -34,12 +34,16 @@ catch a bad inference before it becomes a foundation:
 
 ```
 Answered from context (N):
-  - <question> → <answer>   [source: PRD §2 / auth.ts:40-58 / your prompt]
+  - <question> → <answer>   [auth.ts:40-58: "<the clause that says it>"]
 Still open (M): → triage below
 ```
 
-Anything sourced to your own reasoning rather than a document, a file, or the
-user's words is not answered. Put it back in the open pile.
+The quote is the whole check. A citation that only points — `[source: auth.ts]`
+— reads identically whether it was quoted or inferred, and an inference that
+lands with provenance is trusted *more* than an honest guess, not less.
+
+So: if you can't quote the source saying it, it's your reasoning. Back in the
+open pile.
 
 ## Phase 1 — Triage what remains
 
@@ -100,6 +104,12 @@ Then, in the same breath, **put every ASK row to them as one batch** — four at
 time, each with your recommended answer. They're already looking at the table;
 that is the cheapest moment they will ever have to answer. Do not carry an ASK
 into the probe work, and do not open a later session to ask one.
+
+Land each answer the turn it arrives — `findings/<nn>.md` with the question,
+their answer in their words, and a `Decides:` line — then flip the row on the
+map. No turn loop runs for an ASK row, so this is the only thing standing
+between four answers and a dead context. The batch isn't done until it's on
+disk.
 
 Only once the ASKs are answered does the pointer go to the first PROBE or
 RESEARCH row.
