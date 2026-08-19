@@ -10,19 +10,16 @@
 //   agent adds → mtime poll → SSE → browser merges by id (append-only, your
 //               in-flight drag is never touched) → diff base moves silently, so
 //               the agent is never notified of its own edits.
-// Everything else (saves, bundling) goes to stderr so it can't become an event.
+// Everything else (saves) goes to stderr so it can't become an event.
 //
-// First run bundles @excalidraw/excalidraw with esbuild into .sight/vendor/ —
-// the published ESM has bare imports and split chunks a browser can't resolve.
-// Cached after that, so every later run is offline and instant.
-//   npm i -D @excalidraw/excalidraw react react-dom esbuild
-// Without those installed it falls back to the unpkg CDN (needs network).
+// The excalidraw and react it serves are committed under <skill>/vendor/. So the
+// board installs nothing, downloads nothing, works offline from the first run,
+// and puts nothing at all into the repo being worked on.
 
 import { createServer } from 'node:http';
-import { readFile, writeFile, mkdir, stat, cp } from 'node:fs/promises';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join, resolve, extname } from 'node:path';
-import { createRequire } from 'node:module';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 const FILE = process.argv[2] ?? '.sight/board.excalidraw';
 const PORT = Number(process.env.PORT ?? 3777);
@@ -31,59 +28,17 @@ const POLL = 750;                                     // how fast agent writes r
 const MOVED = 20;                                     // px below this is jitter, not a move
 const EMPTY = { type: 'excalidraw', version: 2, source: 'sightline', elements: [], appState: {} };
 
-// .sight/vendor/ sits beside the effort dirs, so one bundle serves every board.
-const VENDOR = FILE.includes('.sight')
-  ? join(FILE.slice(0, FILE.indexOf('.sight') + 6), 'vendor')
-  : join(dirname(FILE), 'vendor');
+// Checked in, one copy for every repo this skill is ever run against. Pinned to
+// the last versions that publish a browser-ready UMD build — excalidraw 0.17.6,
+// react 18.3.1 — which is what removes the bundler. Replacing either means
+// checking a plain <script src> still boots it.
+const VENDOR = join(dirname(dirname(fileURLToPath(import.meta.url))), 'vendor');
 
-const exists = (p) => stat(p).then(() => true, () => false);
-
-async function ensureBundle() {
-  if (await exists(join(VENDOR, 'excalidraw.js'))) return true;
-  let esbuild, pkgDir;
-  try {
-    // the skill folder has no node_modules — resolve from the repo being worked on
-    const req = createRequire(join(process.cwd(), 'noop.js'));
-    esbuild = await import(pathToFileURL(req.resolve('esbuild')).href);
-    pkgDir = dirname(req.resolve('@excalidraw/excalidraw'));
-  } catch {
-    console.error('! @excalidraw/excalidraw + esbuild not installed — falling back to unpkg (needs network).');
-    console.error('  npm i -D @excalidraw/excalidraw react react-dom esbuild   → offline after first run');
-    return false;
-  }
-  console.error(`bundling excalidraw → ${VENDOR}/ (first run only)`);
-  await mkdir(VENDOR, { recursive: true });
-  await esbuild.build({
-    stdin: {
-      contents: `
-        import * as React from "react";
-        import { createRoot } from "react-dom/client";
-        import { Excalidraw } from "@excalidraw/excalidraw";
-        window.React = React; window.createRoot = createRoot; window.Excalidraw = Excalidraw;`,
-      resolveDir: process.cwd(), loader: 'js',
-    },
-    bundle: true, format: 'iife', minify: true, conditions: ['production'],
-    define: { 'process.env.NODE_ENV': '"production"', 'process.env.IS_PREACT': '"false"' },
-    outfile: join(VENDOR, 'excalidraw.js'),
-    logLevel: 'error',
-  });
-  await cp(join(pkgDir, 'index.css'), join(VENDOR, 'index.css'));
-  if (await exists(join(pkgDir, 'fonts'))) await cp(join(pkgDir, 'fonts'), join(VENDOR, 'fonts'), { recursive: true });
-  return true;
-}
-
-const local = await ensureBundle();
-
-const CDN = 'https://unpkg.com/@excalidraw/excalidraw@0.17.6/dist';
-const head = local
-  ? `<link rel="stylesheet" href="/vendor/index.css">
-     <script>window.EXCALIDRAW_ASSET_PATH="/vendor/";</script>
-     <script src="/vendor/excalidraw.js"></script>`
-  : `<link rel="stylesheet" href="${CDN}/excalidraw.production.min.css">
-     <script>window.EXCALIDRAW_ASSET_PATH="${CDN}/";</script>
-     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-     <script src="${CDN}/excalidraw.production.min.js"></script>
+// 0.17.x injects its own styles from the bundle — there is no stylesheet to link.
+const head = `<script>window.EXCALIDRAW_ASSET_PATH="/vendor/";</script>
+     <script src="/vendor/react.js"></script>
+     <script src="/vendor/react-dom.js"></script>
+     <script src="/vendor/excalidraw.js"></script>
      <script>window.Excalidraw=ExcalidrawLib.Excalidraw;window.createRoot=ReactDOM.createRoot;</script>`;
 
 const page = `<!doctype html><html><head><meta charset="utf-8">

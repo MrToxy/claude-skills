@@ -276,15 +276,16 @@ Layout, or the equivalent on whatever tracker the repo uses:
   findings/<nn>.md    the 4-liner /probe returns, written the moment it ends
   probes/<nn>-<slug>/ excluded spike code, deleted after the finding lands
   board.excalidraw    optional, one per effort
-.sight/vendor/        excluded — 8MB excalidraw bundle, rebuilt per machine
 ```
 
 The map, the questions and the findings are the effort — they belong in the
-repo so it survives a laptop. The two things that don't:
+repo so it survives a laptop. The one thing that doesn't:
 
 ```
-printf '.sight/probes/\n.sight/*/probes/\n.sight/vendor/\n' >> .git/info/exclude
+printf '.sight/probes/\n.sight/*/probes/\n' >> .git/info/exclude
 ```
+
+The board adds nothing either: the excalidraw it serves ships with the skill.
 
 **MAP.md** stays under roughly 60 lines whatever the size of the effort, because
 every resumed session reads it in full. It holds: the destination, the horizon,

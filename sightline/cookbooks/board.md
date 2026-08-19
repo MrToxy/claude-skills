@@ -106,15 +106,9 @@ context still holds:
 Never reply to a change block with a redrawn board, and never treat drawing as
 an answer to the question you last asked in chat — ask whether it was.
 
-Setup, once per repo, only if you want the board offline:
-
-```
-npm i -D @excalidraw/excalidraw react react-dom esbuild
-```
-
-First `board` run bundles it into `.sight/vendor/` (~8MB, excluded from git,
-rebuilt per machine). Without those packages the CDN fallback still works, but
-needs network.
+No setup, no install, no network. Excalidraw and react ship with the skill, in
+`<skill>/vendor/`, and the board serves them from there — nothing lands in the
+repo you're working on, and the first run works the same as the hundredth.
 
 If the board file exists, it is a first-class input — read it at the start of
 every session, before MAP.md.
