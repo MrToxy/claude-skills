@@ -9,11 +9,11 @@ Plan only as far as you can see. Then go look further.
 
 ## Where this sits
 
-This is not an interview skill. `/plan-with-docs` runs the interview in this
-repo; sightline is the handler for the questions that interview cannot resolve.
+This is not an interview skill. Sightline handles the questions an interview
+cannot resolve.
 
-- **Interview skills** (`/plan-with-docs` here) assume the answer is in the
-  user's head and press until it comes out.
+- **Interview skills** assume the answer is in the user's head and press until
+  it comes out.
 - **Mapping skills** assume the answer is a decision someone can make once the
   question is framed well enough.
 - **Sightline** owns the third case: nobody knows yet, and no amount of framing
@@ -27,16 +27,18 @@ context. The seam:
 ```
 one unknowable question   → /probe, inline, interview resumes on the 4-liner
 the interview stalls      → stop it, run /sightline on that area, come back with
-                            ADRs + glossary, which /plan-with-docs already loads
-                            as constraints
+                            ADRs + glossary, which an interview skill loads as
+                            constraints
 fogged from the start     → /sightline is the front door, and usually the whole
                             journey. It ends by putting both exits to the user —
-                            build it now, or /plan-with-docs — and they pick
+                            build it now, or take it to an interview — and
+                            they pick
 ```
 
 So invoke it two ways: as the **front door** when the work is fogged from the
-start — the common case — or as a **sidecar** when an interview stalls and hands
-the whole area here.
+start — the common case — or as a **sidecar** over one fogged area: an interview
+that stalled hands it here, or a corner of work already underway that nobody
+can see through.
 
 The failure this exists to prevent: an interview designed to resolve every
 branch of the design tree, meeting a branch that cannot be resolved by talking,
@@ -92,7 +94,7 @@ wait on it — they may draw nothing, and the conversation carries on regardless
 The skill picks recipes; it never improvises shell. Each is one node script —
 `just` is convenience, not a dependency.
 
-| `sight …` | falls back to | does |
+| `sight …` | runs | does |
 |---|---|---|
 | `resume [effort]` | `node scripts/resume.mjs` | the only thing a fresh context reads |
 | `board <file>` | `node scripts/board-serve.mjs` | Excalidraw on localhost:3777, autosaving, two-way |
@@ -107,7 +109,7 @@ alias sight='just --justfile <this skill>/justfile --working-directory .'
 `board` is never run as a plain background command — always under `Monitor`,
 `persistent: true`. Its stdout is a change feed, not a log: three seconds after
 they stop drawing, one block arrives naming what changed. Serving a board
-without watching it is the old one-way board, and wastes the thing they drew.
+without watching it makes it one-way, and wastes the thing they drew.
 
 ```
 you  sight add …  ──→ file ──→ their open tab updates, mid-drag and all
@@ -403,7 +405,7 @@ when their trigger fires. Fog is layered, so plan in layers.
 
 ## Anti-patterns
 
-- Re-running the interview. `/plan-with-docs` already did that better; take its
+- Re-running an interview that already happened. It did that better; take its
   leftovers.
 - Producing a complete plan on the first pass. Completeness this early is a
   symptom, not an achievement.
