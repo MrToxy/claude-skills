@@ -104,9 +104,13 @@ function App() {
 createRoot(document.getElementById('app')).render(h(App));
 </script></body></html>`;
 
+// A file that exists but doesn't parse is not an empty board. Serving EMPTY for
+// it would let the open tab save its blank scene straight over the drawing.
 const read = async () => {
-  try { return JSON.parse(await readFile(FILE, 'utf8')); }
-  catch { return EMPTY; }
+  const text = await readFile(FILE, 'utf8').catch(() => null);
+  if (text === null) return EMPTY;                       // not drawn yet
+  try { return JSON.parse(text); }
+  catch { throw new Error(`${FILE} is not valid excalidraw JSON`); }
 };
 
 // ── what changed, in board vocabulary ───────────────────────────────────────
@@ -174,7 +178,10 @@ function diff(before, after) {
 }
 
 // ── the two directions ──────────────────────────────────────────────────────
-const doc0 = await read();
+const doc0 = await read().catch((e) => {
+  console.error(`! ${e.message}\n  refusing to serve it — an open tab would save over it. Fix or move the file.`);
+  process.exit(1);
+});
 let latest = doc0.elements ?? [];                       // last known state, from either side
 let base = snap(latest);                                // last state the agent was told about
 let onDisk = await readFile(FILE, 'utf8').catch(() => null);
@@ -226,8 +233,10 @@ const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/wof
 createServer(async (req, res) => {
   const url = req.url.split('?')[0];
   if (url === '/board' && req.method === 'GET') {
+    const doc = await read().catch(() => null);
+    if (!doc) { res.writeHead(409); return res.end('board file is not valid excalidraw JSON'); }
     res.writeHead(200, { 'content-type': 'application/json' });
-    return res.end(JSON.stringify(await read()));
+    return res.end(JSON.stringify(doc));
   }
   if (url === '/board' && req.method === 'PUT') {
     const chunks = [];
@@ -238,7 +247,9 @@ createServer(async (req, res) => {
     // deletions arrive as isDeleted, never as absence. So an id the tab has
     // never heard of is one the agent just wrote: union it back, don't drop it.
     // Against the file, not `latest` — an append seconds old may not be polled yet.
-    const onFile = await readFile(FILE, 'utf8').then((t) => JSON.parse(t).elements ?? [], () => []);
+    let onFile;                                      // corrupt on disk: refuse, don't union
+    try { onFile = (await read()).elements ?? []; }   // against [] and overwrite it
+    catch { res.writeHead(409); return res.end('board file on disk is not valid excalidraw JSON'); }
     const has = new Set((doc.elements ?? []).map((e) => e.id));
     const unseen = onFile.filter((e) => !has.has(e.id));
     if (unseen.length) {
@@ -281,4 +292,4 @@ createServer(async (req, res) => {
     console.error(`kill it, or:  PORT=${PORT + 1} node scripts/board-serve.mjs ${FILE}`);
     process.exit(1);
   })
-  .listen(PORT, () => console.log(`board → ${FILE}\nhttp://localhost:${PORT}`));
+  .listen(PORT, '127.0.0.1', () => console.log(`board → ${FILE}\nhttp://localhost:${PORT}`));
