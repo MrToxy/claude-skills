@@ -139,7 +139,8 @@ Never answer a drawing with a redraw. Fuller mechanics:
    building will teach you something that changes everything after it. Beyond
    it, write named unknowns, not steps.
 3. **Probe code is throwaway and quarantined.** Never write production code
-   during a sightline session. A probe answers a question and then dies.
+   during a sightline session, and never import production code into a probe.
+   A probe answers a question and then dies.
 4. **Every resolution produces something the user can disagree with.** A claim
    they can only nod at is not a resolution.
 5. **The user's understanding is a gate.** If they can't explain a decision
@@ -320,7 +321,11 @@ Work one row per context. At the end of every row, before anything else:
 2. Update that row's status in MAP.md, move `→ current:`, and stamp `touched:`
    on every row you looked at — including ones you left open.
 3. Land the ADR or glossary change if the finding earned one.
-4. Tell the user the context is now safe to clear.
+4. **If the finding moved the structure, offer the board** — one line, then
+   carry on. This is the trigger that fires most and gets skipped most: the
+   table above is read once at load, and by the time a probe reclassifies a
+   thing you are six rows deep and drawing nothing.
+5. Tell the user the context is now safe to clear.
 
 Then clear. Carrying a resolved row's detail into the next row costs context and
 buys nothing — the finding is the compression.

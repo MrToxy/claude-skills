@@ -30,6 +30,12 @@ Choosing it:
   wrong. Never a summary, never "explain the approach"
 - minutes, not a session
 
+When the artifact is a **shape** rather than a signature — what calls what, what
+crosses which boundary, which thing owns the write — offer the board and let
+them draw it. Same instrument: a drawing is right or wrong the same way a type
+is, and a missing arrow names its row exactly like a wrong return type does.
+Offer, don't require — a typed answer is not a worse answer.
+
 Grading is mechanical, and that's the point: each finding predicts a property of
 the artifact, so a mismatch names its row. *"Your return type is `{count, total}`
 — that's finding 02, which chose a separate tool precisely because grouping
