@@ -6,7 +6,7 @@
 // finished question files stay closed, which is the whole point.
 // Read-only. No deps.
 
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, access } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { die, findSight, pickEffort, frontmatter, gitIn } from './lib.mjs';
 
@@ -19,13 +19,31 @@ const git = gitIn(dirname(sight));
 
 const map = await readFile(join(dir, 'MAP.md'), 'utf8').catch(() => die(`no MAP.md in ${dir}`));
 console.log(`effort: ${effort}   (${dir})`);
+// A board is the one thing outside this output that a fresh context must read.
+const hasBoard = await access(join(dir, 'board.excalidraw')).then(() => true, () => false);
+if (hasBoard) {
+  console.log(rule('BOARD') + 'board.excalidraw exists — read it before anything else '
+    + '(cookbooks/board.md). It is the most recent thing the user said.');
+}
+
 console.log(rule('MAP') + map.trim());
 
-// The pointer is a literal line in MAP.md: `→ current: q/07-slug.md`
-const pointer = map.match(/^→ current:\s*(\S+)/m)?.[1];
+// The pointer is a line in MAP.md: `→ current: q/07-slug.md`. Read it through
+// whatever markdown decoration a hand added — a missed pointer looks exactly
+// like a finished effort, and that mistake lands a plan over an open row.
+const pointer = map.match(/^\s*(?:[-*>]\s+)?\**\s*→\s*current:\s*\**\s*(\S+)/mi)?.[1]
+  ?.replace(/^[`*]+/, '').replace(/[`*]+$/, '');
 if (!pointer) {
-  console.log(rule('CURRENT ROW') + 'no `→ current:` line in MAP.md — pick a row and add one.\n'
-    + '(expected if every `now` row is closed: the effort is at its horizon.)');
+  // No pointer means one of two very different things. Say which.
+  const qs = (await readdir(join(dir, 'q')).catch(() => [])).filter((f) => f.endsWith('.md'));
+  const done = new Set((await readdir(join(dir, 'findings')).catch(() => []))
+    .map((f) => f.match(/^(\d+)/)?.[1]).filter(Boolean));
+  const open = qs.filter((f) => !done.has(f.match(/^(\d+)/)?.[1]));
+  console.log(rule('CURRENT ROW') + 'no `→ current:` line in MAP.md.\n' + (open.length
+    ? `${open.length} row(s) still open with no finding:\n  ${open.join('\n  ')}\n`
+      + 'An ASK row never holds the pointer, so this is an ASK batch waiting on the user —\n'
+      + 'the effort is BLOCKED on it, not at its horizon. Do not land a plan over it.'
+    : 'every row has a finding — the effort is at its horizon. Read cookbooks/land.md.'));
 } else {
   const row = await readFile(join(dir, pointer), 'utf8').catch(() => null);
   console.log(rule(`CURRENT ROW — ${pointer}`) + (row ? row.trim() : `missing file: ${pointer}`));
@@ -34,7 +52,10 @@ if (!pointer) {
   const since = fm.touched;
   const paths = (fm.paths ?? '').split(/[,\s]+/).filter(Boolean);
   if (!since) {
-    console.log(rule('MOVED SINCE') + 'no `touched:` in the row\'s frontmatter — staleness unknown.');
+    const misplaced = row && /^touched:/m.test(row);
+    console.log(rule('MOVED SINCE') + 'no `touched:` in the row\'s frontmatter — staleness unknown.'
+      + (misplaced ? '\nThe row does say `touched:`, but outside the opening `---` fence, so it '
+        + 'was not read.\nMove it into the fence at the top of the file.' : ''));
   } else {
     const log = git(['log', '--oneline', '--since', since, '--', ...(paths.length ? paths : ['.'])]);
     console.log(rule(`MOVED SINCE ${since}${paths.length ? ` — ${paths.join(' ')}` : ' — whole repo'}`) +
@@ -53,4 +74,5 @@ if (findings.length) {
   console.log(rule('FINDINGS — Decides only') + lines.join('\n'));
 }
 
-console.log(`\n${'─'.repeat(62)}\nRead nothing else. Closed rows are closed; findings are the compression.`);
+console.log(`\n${'─'.repeat(62)}\nRead nothing else${hasBoard ? ' but the board' : ''}. `
+  + 'Closed rows are closed; findings are the compression.');

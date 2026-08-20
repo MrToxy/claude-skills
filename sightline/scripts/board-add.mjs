@@ -20,6 +20,7 @@ import { join, dirname } from 'node:path';
 import { die, findSight, pickEffort, slug } from './lib.mjs';
 
 const AGENT = '#1971c2';                       // agent-added: blue. user default is #1e1e1e
+const GAP = 4;                                 // breathing room between a box edge and an arrow
 const EMPTY = { type: 'excalidraw', version: 2, source: 'sightline', elements: [], appState: {} };
 const rnd = () => Math.floor(Math.random() * 2 ** 31);
 
@@ -76,9 +77,10 @@ const freshId = (want) => {
   return id;
 };
 
-// next free column, so `box` without --at still lands somewhere sane
+// next free column, so `box` without --at still lands somewhere sane. The gap
+// has to hold an arrow AND its label — at 60 the label covers the whole shaft.
 const nextX = () => doc.elements.filter((e) => e.type === 'rectangle')
-  .reduce((m, e) => Math.max(m, e.x + e.width + 60), 0);
+  .reduce((m, e) => Math.max(m, e.x + e.width + 160), 0);
 
 // ── element factories ───────────────────────────────────────────────────────
 const base = (type, id, x, y, width, height) => ({
@@ -109,18 +111,36 @@ function addBox(text, o = {}) {
   return el;
 }
 
+// Where the line between two centres leaves a box. Excalidraw only re-solves a
+// binding when an element moves, so the points written here are what gets drawn:
+// centre-to-centre would put the shaft straight through both boxes.
+const leaves = (el, cx, cy, dx, dy) => {
+  const s = Math.min(dx ? (el.width / 2) / Math.abs(dx) : Infinity,
+                     dy ? (el.height / 2) / Math.abs(dy) : Infinity);
+  return [cx + dx * s, cy + dy * s];
+};
+
 function addArrow(fromRef, toRef, o = {}) {
   const a = byRef(fromRef), b = byRef(toRef);
   const [ax, ay] = [a.x + a.width / 2, a.y + a.height / 2];
   const [bx, by] = [b.x + b.width / 2, b.y + b.height / 2];
+  const [dx, dy] = [bx - ax, by - ay];
+  const len = Math.hypot(dx, dy);
+  const [ux, uy] = len ? [dx / len, dy / len] : [0, 0];
+  let [sx, sy] = leaves(a, ax, ay, dx, dy);
+  let [ex, ey] = leaves(b, bx, by, -dx, -dy);
+  [sx, sy, ex, ey] = [sx + ux * GAP, sy + uy * GAP, ex - ux * GAP, ey - uy * GAP];
+  // boxes overlapping, or so close the gaps meet, leave nothing to draw between
+  // the edges — fall back to the centres, still bound, still visible.
+  if (!len || (ex - sx) * ux + (ey - sy) * uy < 8) [sx, sy, ex, ey] = [ax, ay, bx, by];
   const el = {
     ...base('arrow', freshId(`${a.id.replace(/^sl-/, '')}-${b.id.replace(/^sl-/, '')}`),
-      ax, ay, Math.abs(bx - ax), Math.abs(by - ay)),
+      sx, sy, Math.abs(ex - sx), Math.abs(ey - sy)),
     roundness: { type: 2 },
-    points: [[0, 0], [bx - ax, by - ay]],
+    points: [[0, 0], [ex - sx, ey - sy]],
     lastCommittedPoint: null,
-    startBinding: { elementId: a.id, focus: 0, gap: 4 },
-    endBinding: { elementId: b.id, focus: 0, gap: 4 },
+    startBinding: { elementId: a.id, focus: 0, gap: GAP },
+    endBinding: { elementId: b.id, focus: 0, gap: GAP },
     startArrowhead: null, endArrowhead: 'arrow', elbowed: false,
     frameId: a.frameId === b.frameId ? a.frameId : null,
   };
@@ -128,7 +148,10 @@ function addArrow(fromRef, toRef, o = {}) {
   for (const end of [a, b]) (end.boundElements ??= []).push({ id: el.id, type: 'arrow' });
   doc.elements.push(el);
   if (o.label) {
-    const t = boundText(o.label, el, ax, ay, 100, 25);
+    // on the shaft's midpoint, not the source box's centre, and only as wide as
+    // the word — a fixed width hides a short arrow behind its own label
+    const w = Math.max(40, o.label.length * 10 + 16);
+    const t = boundText(o.label, el, (sx + ex) / 2 - w / 2, (sy + ey) / 2 - 12, w, 25);
     t.strokeColor = AGENT;
     el.boundElements.push({ id: t.id, type: 'text' });
     doc.elements.push(t);

@@ -12,7 +12,9 @@ you're already here.
 
 **RESEARCH** — go read. Return under ten lines: what's there, what it
 constrains, what surprised you. Cite files and line ranges so the user can
-follow you in.
+follow you in. Return the shape you found — call tree, file tree, the type —
+not a description of it; a paragraph about how three modules relate is the
+worst form that answer has.
 
 **PROBE** — hand the row to `/probe`. It owns the build; you own the map.
 
@@ -42,6 +44,10 @@ it, hand-writing the load-bearing pieces is the only reliable way the
 understanding arrives, and it has to be negotiated before the code exists rather
 than recovered afterwards.
 
+In this session you build only the toy and the probe stage. Everything else the
+split assigns you is the plan's work, not this session's — it waits for the user
+to trigger the build.
+
 Propose the split with this rule: **the user writes whatever they'll need the
 concepts of to steer the next ten loops.** In practice the core data structure,
 the state machine, the boundary type — almost never the glue, the config, the
@@ -50,12 +56,19 @@ lines and a much larger share of the decisions.
 
 Concrete forms, in rough order of how often they apply:
 
-- **Toy version first.** Before anything structural, write one file, 40–80
-  lines, that has the architecture and none of the production concerns — no
-  error handling, no framework, no auth, fixtures inline. The user reads it,
-  edits it, breaks it. Only then scale it up. This is the highest-value move in
-  the skill: it puts understanding before the code exists, rather than after,
+- **Toy version first.** Before anything structural, write one file, 40–80 lines
+  **in the row's spike dir**, that has the architecture and none of the
+  production concerns — no error handling, no framework, no auth, fixtures
+  inline. The user reads it, edits it, breaks it. This is the highest-value move
+  in the skill: it puts understanding before the code exists, rather than after,
   which is where review always fails.
+
+  Scaling it up is implementation, and implementation is the user's trigger. A
+  toy that survived iteration and won the direction is a *resolved row*, not a
+  head start — its shape carries forward as the finding, and as a kept
+  micro-world if it earned one. Otherwise it dies with the spike. Do not grow it
+  into the real thing because the direction is now obvious. The obviousness is
+  what the toy was for.
 - **User writes the types, you write the bodies.** For load-bearing work the
   interface is the design and the implementation is the labour. Cheap for them,
   and it forces every real decision through them. It also hands you an unusually
@@ -84,6 +97,11 @@ does. Keep it to something that takes minutes, not a session.
 or the user asks for something lighter — fall back to three questions:
 mechanism, why-this-not-the-alternative, and what-breaks-first. Weaker, but it
 still catches a nod.
+
+Never offer it. It exists for when they ask, or when there is genuinely nothing
+to extend; offering it is skipping the gate, and it slips hardest on exactly the
+decisions that have no small extension — the architectural and the negative
+ones.
 
 If the gate fails, the decision is not resolved. Re-explain in a form the user
 can actually read: a reduced version of the code with the noise stripped out, a

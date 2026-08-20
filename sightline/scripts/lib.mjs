@@ -30,8 +30,11 @@ export async function pickEffort(sight, wanted) {
   die(`several efforts — name one:\n  ${efforts.join('\n  ')}`);
 }
 
+// Tolerant on read: a BOM, leading blank lines or CRLF must not silently cost
+// the row its `touched:` stamp. The fence still has to be the first content.
 export const frontmatter = (text) => {
-  const m = text.match(/^---\n([\s\S]*?)\n---/);
+  const m = text.replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').trimStart()
+    .match(/^---\n([\s\S]*?)\n---/);
   if (!m) return {};
   return Object.fromEntries(
     m[1].split('\n').filter((l) => l.includes(':'))

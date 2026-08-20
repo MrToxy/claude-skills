@@ -10,19 +10,16 @@
 //   agent adds → mtime poll → SSE → browser merges by id (append-only, your
 //               in-flight drag is never touched) → diff base moves silently, so
 //               the agent is never notified of its own edits.
-// Everything else (saves, bundling) goes to stderr so it can't become an event.
+// Everything else (saves) goes to stderr so it can't become an event.
 //
-// First run bundles @excalidraw/excalidraw with esbuild into .sight/vendor/ —
-// the published ESM has bare imports and split chunks a browser can't resolve.
-// Cached after that, so every later run is offline and instant.
-//   npm i -D @excalidraw/excalidraw react react-dom esbuild
-// Without those installed it falls back to the unpkg CDN (needs network).
+// The excalidraw and react it serves are committed under <skill>/vendor/. So the
+// board installs nothing, downloads nothing, works offline from the first run,
+// and puts nothing at all into the repo being worked on.
 
 import { createServer } from 'node:http';
-import { readFile, writeFile, mkdir, stat, cp } from 'node:fs/promises';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join, resolve, extname } from 'node:path';
-import { createRequire } from 'node:module';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 const FILE = process.argv[2] ?? '.sight/board.excalidraw';
 const PORT = Number(process.env.PORT ?? 3777);
@@ -31,59 +28,17 @@ const POLL = 750;                                     // how fast agent writes r
 const MOVED = 20;                                     // px below this is jitter, not a move
 const EMPTY = { type: 'excalidraw', version: 2, source: 'sightline', elements: [], appState: {} };
 
-// .sight/vendor/ sits beside the effort dirs, so one bundle serves every board.
-const VENDOR = FILE.includes('.sight')
-  ? join(FILE.slice(0, FILE.indexOf('.sight') + 6), 'vendor')
-  : join(dirname(FILE), 'vendor');
+// Checked in, one copy for every repo this skill is ever run against. Pinned to
+// the last versions that publish a browser-ready UMD build — excalidraw 0.17.6,
+// react 18.3.1 — which is what removes the bundler. Replacing either means
+// checking a plain <script src> still boots it.
+const VENDOR = join(dirname(dirname(fileURLToPath(import.meta.url))), 'vendor');
 
-const exists = (p) => stat(p).then(() => true, () => false);
-
-async function ensureBundle() {
-  if (await exists(join(VENDOR, 'excalidraw.js'))) return true;
-  let esbuild, pkgDir;
-  try {
-    // the skill folder has no node_modules — resolve from the repo being worked on
-    const req = createRequire(join(process.cwd(), 'noop.js'));
-    esbuild = await import(pathToFileURL(req.resolve('esbuild')).href);
-    pkgDir = dirname(req.resolve('@excalidraw/excalidraw'));
-  } catch {
-    console.error('! @excalidraw/excalidraw + esbuild not installed — falling back to unpkg (needs network).');
-    console.error('  npm i -D @excalidraw/excalidraw react react-dom esbuild   → offline after first run');
-    return false;
-  }
-  console.error(`bundling excalidraw → ${VENDOR}/ (first run only)`);
-  await mkdir(VENDOR, { recursive: true });
-  await esbuild.build({
-    stdin: {
-      contents: `
-        import * as React from "react";
-        import { createRoot } from "react-dom/client";
-        import { Excalidraw } from "@excalidraw/excalidraw";
-        window.React = React; window.createRoot = createRoot; window.Excalidraw = Excalidraw;`,
-      resolveDir: process.cwd(), loader: 'js',
-    },
-    bundle: true, format: 'iife', minify: true, conditions: ['production'],
-    define: { 'process.env.NODE_ENV': '"production"', 'process.env.IS_PREACT': '"false"' },
-    outfile: join(VENDOR, 'excalidraw.js'),
-    logLevel: 'error',
-  });
-  await cp(join(pkgDir, 'index.css'), join(VENDOR, 'index.css'));
-  if (await exists(join(pkgDir, 'fonts'))) await cp(join(pkgDir, 'fonts'), join(VENDOR, 'fonts'), { recursive: true });
-  return true;
-}
-
-const local = await ensureBundle();
-
-const CDN = 'https://unpkg.com/@excalidraw/excalidraw@0.17.6/dist';
-const head = local
-  ? `<link rel="stylesheet" href="/vendor/index.css">
-     <script>window.EXCALIDRAW_ASSET_PATH="/vendor/";</script>
-     <script src="/vendor/excalidraw.js"></script>`
-  : `<link rel="stylesheet" href="${CDN}/excalidraw.production.min.css">
-     <script>window.EXCALIDRAW_ASSET_PATH="${CDN}/";</script>
-     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-     <script src="${CDN}/excalidraw.production.min.js"></script>
+// 0.17.x injects its own styles from the bundle — there is no stylesheet to link.
+const head = `<script>window.EXCALIDRAW_ASSET_PATH="/vendor/";</script>
+     <script src="/vendor/react.js"></script>
+     <script src="/vendor/react-dom.js"></script>
+     <script src="/vendor/excalidraw.js"></script>
      <script>window.Excalidraw=ExcalidrawLib.Excalidraw;window.createRoot=ReactDOM.createRoot;</script>`;
 
 const page = `<!doctype html><html><head><meta charset="utf-8">
@@ -149,9 +104,13 @@ function App() {
 createRoot(document.getElementById('app')).render(h(App));
 </script></body></html>`;
 
+// A file that exists but doesn't parse is not an empty board. Serving EMPTY for
+// it would let the open tab save its blank scene straight over the drawing.
 const read = async () => {
-  try { return JSON.parse(await readFile(FILE, 'utf8')); }
-  catch { return EMPTY; }
+  const text = await readFile(FILE, 'utf8').catch(() => null);
+  if (text === null) return EMPTY;                       // not drawn yet
+  try { return JSON.parse(text); }
+  catch { throw new Error(`${FILE} is not valid excalidraw JSON`); }
 };
 
 // ── what changed, in board vocabulary ───────────────────────────────────────
@@ -219,7 +178,10 @@ function diff(before, after) {
 }
 
 // ── the two directions ──────────────────────────────────────────────────────
-const doc0 = await read();
+const doc0 = await read().catch((e) => {
+  console.error(`! ${e.message}\n  refusing to serve it — an open tab would save over it. Fix or move the file.`);
+  process.exit(1);
+});
 let latest = doc0.elements ?? [];                       // last known state, from either side
 let base = snap(latest);                                // last state the agent was told about
 let onDisk = await readFile(FILE, 'utf8').catch(() => null);
@@ -271,8 +233,10 @@ const MIME = { '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/wof
 createServer(async (req, res) => {
   const url = req.url.split('?')[0];
   if (url === '/board' && req.method === 'GET') {
+    const doc = await read().catch(() => null);
+    if (!doc) { res.writeHead(409); return res.end('board file is not valid excalidraw JSON'); }
     res.writeHead(200, { 'content-type': 'application/json' });
-    return res.end(JSON.stringify(await read()));
+    return res.end(JSON.stringify(doc));
   }
   if (url === '/board' && req.method === 'PUT') {
     const chunks = [];
@@ -283,7 +247,9 @@ createServer(async (req, res) => {
     // deletions arrive as isDeleted, never as absence. So an id the tab has
     // never heard of is one the agent just wrote: union it back, don't drop it.
     // Against the file, not `latest` — an append seconds old may not be polled yet.
-    const onFile = await readFile(FILE, 'utf8').then((t) => JSON.parse(t).elements ?? [], () => []);
+    let onFile;                                      // corrupt on disk: refuse, don't union
+    try { onFile = (await read()).elements ?? []; }   // against [] and overwrite it
+    catch { res.writeHead(409); return res.end('board file on disk is not valid excalidraw JSON'); }
     const has = new Set((doc.elements ?? []).map((e) => e.id));
     const unseen = onFile.filter((e) => !has.has(e.id));
     if (unseen.length) {
@@ -326,4 +292,4 @@ createServer(async (req, res) => {
     console.error(`kill it, or:  PORT=${PORT + 1} node scripts/board-serve.mjs ${FILE}`);
     process.exit(1);
   })
-  .listen(PORT, () => console.log(`board → ${FILE}\nhttp://localhost:${PORT}`));
+  .listen(PORT, '127.0.0.1', () => console.log(`board → ${FILE}\nhttp://localhost:${PORT}`));
