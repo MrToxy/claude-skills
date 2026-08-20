@@ -73,7 +73,13 @@ GOOD  bundle grows < 40kb gzipped and cold parse < 100ms on the throttled profil
 
 BAD   find out how bad the N+1 is
 GOOD  > 200ms added at 50 rows → batch loader; under → leave it, revisit at 500 rows
+
+BAD   design the results card
+GOOD  3 layout variants, same fixtures, side by side → the one they pick
 ```
+
+Taste is a valid observation, but only once the options are enumerated first.
+"Which do you prefer" over three built things is a rule; over nothing is a chat.
 
 If the user can't state the rule, the probe isn't ready — that's the real
 finding, and it's usually because the question is two questions.
@@ -118,11 +124,18 @@ Spikes only — a map, its question files, and its findings are shareable, and
 Rules that don't bend:
 - Nothing is imported from the spike into the real tree. Ever. If a line of it
   turns out to be right, it gets rewritten there deliberately.
+- **And nothing from the real tree enters the spike** — no components, no design
+  system, no dev server, no db client, no shared config. Unless the decision
+  rule names a project artifact as the thing under test ("does our `Table`
+  survive 10k rows?"), the project is a source of *data*, not of *code*.
 - No production code is edited during a probe. Reading production code is the
   point; writing it is a different skill.
-- Real data. Actual rows, actual payloads, actual recorded failures. A probe on
-  fabricated happy-path data answers nothing and feels like it answered
-  something, which is worse than not running it.
+- Real data, **copied out once**. Dump the rows and payloads to `fixtures.json`
+  inside the spike, then never reconnect. A snapshot re-runs; a connection is a
+  leash. A probe on fabricated happy-path data answers nothing and feels like it
+  answered something, which is worse than not running it.
+- Single file by default. Its own `package.json` only when the rule names a real
+  library — then the deps are the spike's, and two probes may disagree.
 
 ## Build the smallest thing
 
@@ -148,6 +161,14 @@ micro-world**, not a description of one.
 | data shape | edit the shape, watch what breaks downstream |
 
 Self-contained: no CDN, no build step, opens from `file://`.
+
+Faithful in exactly **one** dimension: the one the rule reads. Everything else
+is fake on purpose — no auth, no real styling, no persistence, wrong data
+volumes. Declare it next to the result, so nobody reads the lie as a finding:
+
+```
+Fidelity: p99 latency only. Everything visual is a lie.
+```
 
 The test: **can the user discover you're wrong by using it?** If the only
 available reaction is "looks fine", it's a demo. Rebuild it.

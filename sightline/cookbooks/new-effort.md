@@ -79,6 +79,11 @@ Render one table and nothing else:
   the interview), RESEARCH (the answer exists but is deeper than Phase 0 went),
   PROBE (nobody knows until something is built), DEFER (a real decision, but
   building isn't blocked by it).
+  - **A question about a visible surface is not an ASK** — a card, a screen, a
+    settings page, anything with a layout. Asked in prose it collects a
+    preference between things nobody has seen, and the answer lands as an ASCII
+    box that reads exactly like a decision. It is a PROBE: build the variants on
+    the same fixtures, let them pick. Ask about a surface only once it is drawn.
 - **When** — now, or the trigger that will force it (`when the second tenant
   lands`, `when a job first fails mid-run`).
 
