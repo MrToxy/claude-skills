@@ -6,21 +6,27 @@ import { join, resolve, dirname } from 'node:path';
 
 export const die = (m) => { console.error(m); process.exit(1); };
 
-// .sight/ lives at the git root, or anywhere up from cwd.
-export async function findSight() {
+// .sight/ lives at the git root, or anywhere up from cwd. `orNull` is for the
+// one caller that may legitimately be creating it — opening a standalone spike.
+export async function findSight({ orNull = false } = {}) {
   let dir = resolve(process.cwd());
   for (;;) {
     try { await stat(join(dir, '.sight')); return join(dir, '.sight'); } catch {}
     const up = dirname(dir);
-    if (up === dir) die('no .sight/ found — this is not a sightline effort.');
+    if (up === dir) return orNull ? null : die('no .sight/ found — this is not a sightline effort.');
     dir = up;
   }
 }
 
-export async function pickEffort(sight, wanted) {
-  const efforts = (await readdir(sight, { withFileTypes: true }))
+// probes/ and vendor/ sit beside the efforts without being one.
+export async function listEfforts(sight) {
+  return (await readdir(sight, { withFileTypes: true }))
     .filter((e) => e.isDirectory() && e.name !== 'vendor' && e.name !== 'probes')
     .map((e) => e.name);
+}
+
+export async function pickEffort(sight, wanted) {
+  const efforts = await listEfforts(sight);
   if (wanted) {
     if (!efforts.includes(wanted)) die(`no such effort: ${wanted}\nhave: ${efforts.join(', ')}`);
     return wanted;

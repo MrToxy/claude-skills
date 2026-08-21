@@ -7,6 +7,7 @@
 // Read-only. No deps.
 
 import { readFile, readdir, access } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { die, findSight, pickEffort, frontmatter, gitIn } from './lib.mjs';
 
@@ -73,6 +74,15 @@ if (findings.length) {
   }
   console.log(rule('FINDINGS — Decides only') + lines.join('\n'));
 }
+
+// A spike is supposed to die with its finding, and the context that ends
+// mid-probe takes that intention with it. So the survivors are named, not
+// remembered.
+try {
+  const spikes = execFileSync(process.execPath,
+    [join(import.meta.dirname, 'spike.mjs'), 'list', '--effort', effort], { encoding: 'utf8' }).trim();
+  if (spikes && !spikes.startsWith('no spikes')) console.log(rule('SPIKES — still on disk') + spikes);
+} catch {}
 
 console.log(`\n${'─'.repeat(62)}\nRead nothing else${hasBoard ? ' but the board' : ''}. `
   + 'Closed rows are closed; findings are the compression.');

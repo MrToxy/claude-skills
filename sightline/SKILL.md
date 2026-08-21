@@ -275,16 +275,26 @@ Layout, or the equivalent on whatever tracker the repo uses:
   MAP.md              index only — never a store
   q/<nn>-<slug>.md    one file per open question, self-contained
   findings/<nn>.md    the 4-liner /probe returns, written the moment it ends
-  probes/<nn>-<slug>/ excluded spike code, deleted after the finding lands
+  probes/<nn>-<slug>/ excluded spike code, burned once the finding lands
   board.excalidraw    optional, one per effort
 ```
 
 The map, the questions and the findings are the effort — they belong in the
-repo so it survives a laptop. The one thing that doesn't:
+repo so it survives a laptop. The spike doesn't, and neither its quarantine nor
+its death is left to memory — both are recipes:
 
 ```
-printf '.sight/probes/\n.sight/*/probes/\n' >> .git/info/exclude
+sight spike 07-transit-api "p99 < 40ms over 500 conns → notify; any drop → outbox"
+sight spikes            # what's still on disk, and whether its finding landed
+sight burn 07           # refuses while findings/07*.md is missing
+sight burn --all
 ```
+
+`spike` writes `RULE.md` and adds `.sight/probes/` and `.sight/*/probes/` to
+`.git/info/exclude`, so the effort stays shareable and the spike stays out of
+the repo's tracked ignore file. It refuses without a rule, because `/probe`
+does. `burn` refuses while the finding is missing, and `resume` names every
+spike still standing.
 
 The board adds nothing either: the excalidraw it serves ships with the skill.
 
@@ -317,7 +327,8 @@ detectable across days.
 
 Work one row per context. At the end of every row, before anything else:
 
-1. Land the finding (`Q / Tried / Found / Decides`) and delete the spike.
+1. Land the finding (`Q / Tried / Found / Decides`), then `sight burn <nn>`.
+   In that order — it refuses the other way round.
 2. Update that row's status in MAP.md, move `→ current:`, and stamp `touched:`
    on every row you looked at — including ones you left open.
 3. Land the ADR or glossary change if the finding earned one.

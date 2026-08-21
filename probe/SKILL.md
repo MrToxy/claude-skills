@@ -112,11 +112,17 @@ row with a trigger — never an opinion.
 .sight/probes/<slug>/                   # standalone
 ```
 
-Ignore it while it lives, without touching the repo's tracked ignore file:
+Don't hand-roll either end of that. Under `sightline`, one recipe makes the dir,
+writes `RULE.md`, and adds `.sight/probes/` and `.sight/*/probes/` to
+`.git/info/exclude` — quarantine without touching the repo's tracked ignore file:
 
 ```
-printf '.sight/probes/\n.sight/*/probes/\n' >> .git/info/exclude
+sight spike 07-transit-api "<the rule>"          # or: node <sightline>/scripts/spike.mjs open ...
 ```
+
+It refuses without a rule, which is this skill's own refusal made unarguable.
+Without `sightline` installed, it's `mkdir -p <dir>`, the rule in `RULE.md`, and
+the two exclude lines by hand.
 
 Spikes only — a map, its question files, and its findings are shareable, and
 `sightline` may want them committed. The spike never is.
@@ -145,6 +151,15 @@ Rules that don't bend:
   framework, no persistence, fixtures inline.
 - Instrument the exact quantity in the rule. If the rule says p99, print p99 —
   not a wall of timings for the reader to eyeball.
+- **Check the instrument against one answer you already know**, before any number
+  it produces is allowed to be a finding. A probe once printed a transit API's
+  timestamps with `toISOString()` — UTC — against a local deadline, so every
+  itinerary looked an hour early; the same naked timestamp sent back as
+  `departureTime` was read as local at the origin, so the follow-up queries asked
+  an hour too early and returned results that argued the API couldn't do the
+  thing it could. Timezones, units, offsets, and silently-capped result sets are
+  where this lives. One hand-checked case costs a minute and is the difference
+  between a finding and a fabrication.
 
 ## Make it manipulable
 
@@ -194,7 +209,12 @@ In this order, before the context ends:
    moves next to that decision's ADR and is committed with it. A kept
    micro-world must break loudly when the system moves under it; one that can
    rot unnoticed wasn't worth keeping.
-3. Delete the spike directory.
+3. Burn the spike directory — `sight burn <nn>`, which refuses until step 1 is
+   on disk (`rm -rf <dir>` without `sightline`). Do it now, in the turn that
+   ends the probe. A spike left for later is left forever: the context that
+   intended to delete it is the one that ends, and one effort accumulated
+   seventeen this way, every one of them looking like live code to the next
+   session that opened the directory.
 4. If the finding settled something hard to reverse, say so and name where it
    belongs (the repo's existing ADR / glossary / plan — never a parallel doc
    system).
@@ -214,6 +234,12 @@ understanding gate. Don't update the map, don't open the next row.
 - Widening the question mid-probe because the first answer was boring.
 - Keeping the spike because it works. Working is not the bar; it was built
   without the concerns that make code survivable.
+- Ending the turn with the finding written and the spike still there. Half-done
+  is the state that persists, because the next context can't tell a live spike
+  from an abandoned one.
+- Believing your own harness. A wrong unit or a naked timestamp produces clean
+  numbers that argue for the wrong branch, and reads exactly like a limitation
+  of the thing under test.
 - Reporting the build instead of the finding. Nobody needs the tour.
 - A second probe on the same question because the first was inconclusive and
   that felt like failure. Re-scope to the cheaper question or defer.

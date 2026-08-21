@@ -41,3 +41,16 @@ frame name contains="":
 #   sight add '[{"box":"Queue","at":[0,0]},{"box":"Worker"},{"arrow":["Queue","Worker"]}]'
 add json:
     @node "{{sl}}/board-add.mjs" --json '{{json}}'
+
+# open a quarantined spike dir — refuses without the rule that would end it
+#   sight spike 07-transit-api "p99 < 40ms over 500 conns → LISTEN/NOTIFY; any drop → outbox"
+spike name rule:
+    @node "{{sl}}/spike.mjs" open "{{name}}" --rule "{{rule}}"
+
+# every spike still on disk, and whether its finding has landed
+spikes:
+    @node "{{sl}}/spike.mjs" list
+
+# delete a spike whose finding is on disk:  sight burn 07  ·  sight burn --all
+burn +args:
+    @node "{{sl}}/spike.mjs" burn {{args}}

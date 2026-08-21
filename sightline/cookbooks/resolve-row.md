@@ -25,7 +25,15 @@ in   the row's question
      .sight/<effort>/probes/<nn>-<slug>/   spike dir
      .sight/<effort>/findings/<nn>.md      where the finding lands
 out  Q / Tried / Found / Decides, plus a micro-world if there's a visible
-     surface; spike deleted
+     surface; spike burned
+```
+
+Open the spike dir with the recipe rather than `mkdir`, and close it with the
+other one:
+
+```
+sight spike 07-transit-api "<the rule>"    # dir + RULE.md + quarantine
+sight burn 07                              # after the finding is written
 ```
 
 Two things that stay yours, because they're triage decisions, not build ones:

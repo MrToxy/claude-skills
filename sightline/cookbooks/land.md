@@ -78,6 +78,11 @@ what you write is what it will later load as a constraint.
   worth keeping.
 - Terms the probe sharpened go in the glossary the same session they resolve.
 
+Then `sight spikes` must come back empty. Anything still standing is a probe
+whose finding never landed — read `RULE.md` and either write the finding or
+`sight burn --force` it, but decide now. A spike that outlives the effort is
+indistinguishable from live code to whoever opens the directory next.
+
 Then the plan itself, short by construction:
 
 ```
