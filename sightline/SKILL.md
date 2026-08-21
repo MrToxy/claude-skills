@@ -1,66 +1,80 @@
 ---
 name: sightline
-description: Handle the parts of a plan that can't be decided by talking — answer every question the PRD, prompt, or codebase can already settle, then resolve what's genuinely unknowable with timeboxed probes and manipulable prototypes, gating progress on the user actually understanding what was decided. Keeps its map and findings on disk so an effort can span many context resets. Use this alongside or inside an interview-based planning skill such as plan-with-docs, whenever the user answers "I don't know yet", says a plan feels premature, says they need to prototype first, says they don't understand what the agent produced, or when the work is too big for one session. Also use it when a previous plan turned out to be wrong once building started, or to resume a fogged effort already underway.
+description: Understand a system before planning a change to it. Reconstructs how the part you're touching works today and why, establishes where the new need fits and what moves when it lands, weighs the approaches, and resolves what reading can't settle with timeboxed probes — gating on the user being able to explain the system back. Keeps its map and findings on disk so one effort can span many context resets. Invoke explicitly by name; it is the step before planning, not a reaction to a stuck conversation. Also invoke it by name to resume an effort already on disk, or when a plan turned out to be wrong once building started. Hands off to a planning skill such as plan-with-docs.
 ---
 
 # Sightline
 
-Plan only as far as you can see. Then go look further.
+Understand the system before you change it. Then plan only as far as you can
+see.
 
 ## Where this sits
 
-This is not an interview skill. Sightline handles the questions an interview
-cannot resolve.
+A feature is not a new thing. It is a change to a system that already exists,
+and most of what looks like a design question is an unread one.
 
-- **Interview skills** assume the answer is in the user's head and press until
-  it comes out.
-- **Mapping skills** assume the answer is a decision someone can make once the
-  question is framed well enough.
-- **Sightline** owns the third case: nobody knows yet, and no amount of framing
-  or pressing will change that. The answer has to be built before it can be
-  known.
-
-Sightline is standalone, and runs across many contexts. The interview is one
-session ending in a plan file, so it cannot host an effort that outlives its own
-context. The seam:
+So sightline runs before planning, always, and always starts from what is
+already there:
 
 ```
-one unknowable question   → /probe, inline, interview resumes on the 4-liner
-the interview stalls      → stop it, run /sightline on that area, come back with
-                            ADRs + glossary, which an interview skill loads as
-                            constraints
-fogged from the start     → /sightline is the front door, and usually the whole
-                            journey. It ends by putting both exits to the user —
-                            build it now, or take it to an interview — and
-                            they pick
+need ──→ sightline ────────────────────→ plan-with-docs ──→ build
+         how it works today, and why     phasing, AC
+         where this lands, what moves
+         which approach, and what it costs
 ```
 
-So invoke it two ways: as the **front door** when the work is fogged from the
-start — the common case — or as a **sidecar** over one fogged area: an interview
-that stalled hands it here, or a corner of work already underway that nobody
-can see through.
+It is **invoked by name**. It does not fire on its own, and it is not a rescue
+for a conversation that stalled — by the time a plan feels premature, the
+reading it skipped is already load-bearing.
 
-The failure this exists to prevent: an interview designed to resolve every
-branch of the design tree, meeting a branch that cannot be resolved by talking,
-and extracting a guess anyway. The guess then reads exactly like a decision in
-the resulting plan. Everything downstream inherits it, and nobody remembers it
-was invented under pressure.
+Three failures it exists to prevent:
 
-The second failure: a long, thorough plan the user approved without holding.
-They then can't participate — can't spot the wrong turn, can't come up with the
-next idea, because they lack the concepts to think with. Understanding is not
-verification. Optimise for their ability to keep steering.
+| The failure | What actually went wrong |
+|---|---|
+| a technically plausible implementation that ignores how the system works | the agent read the feature, not the system |
+| a question nobody can answer gets answered anyway, under pressure — and then reads exactly like a decision in the plan | no one distinguished *unread* from *unknowable* |
+| a long, thorough plan the user approved without holding | understanding is not verification, and approval costs nothing |
+
+The third is the one that compounds. A user who can't explain the system can't
+participate: can't spot the wrong turn, can't have the next idea, because they
+lack the concepts to think with. Optimise for their ability to keep steering.
+
+## The spine
+
+```
+need arrives                  input, not a design — it scopes the reading
+   ↓
+Reconstruct   how the part this touches works today, and why
+   ↓          written as you go · gate: they draw it or say it
+Fit           where the new thing lands, and what moves
+   ↓
+Approaches    2–3 whole-change approaches, one pick, what the pick costs
+   ↓
+Triage        what reading left open — ASK / RESEARCH / PROBE / DEFER
+   ↓
+Resolve       one row per context
+Seams         who writes what by hand
+Gate          the user demonstrates they hold each decision
+   ↓
+Land          horizon check, artifacts, handoff
+Re-fog        when the build contradicts something
+```
+
+Reconstruct → Fit → Approaches is one pass, in `cookbooks/reconstruct.md`.
+Everything after it is per-row.
 
 ## What to read next
 
 This file is the spine — invariants, disk layout, the turn loop, how to talk.
-The procedures are loaded on demand, because a session works **one row** and
-shouldn't be carrying the other five phases while it does.
+The procedures load on demand, because a session works **one thing** and
+shouldn't carry the other phases while it does.
 
 | You are | Read |
 |---|---|
-| resuming — `.sight/` exists | `sight resume`, then [cookbooks/resolve-row.md](cookbooks/resolve-row.md) |
-| starting fogged work, nothing on disk | [cookbooks/new-effort.md](cookbooks/new-effort.md) |
+| starting — a need, nothing on disk | [cookbooks/reconstruct.md](cookbooks/reconstruct.md) |
+| resuming — `.sight/` exists | `sight resume`, then whatever its pointer names |
+| reading done, rows to classify | [cookbooks/triage.md](cookbooks/triage.md) |
+| working one row | [cookbooks/resolve-row.md](cookbooks/resolve-row.md) |
 | holding a finding, or out of `now` rows | [cookbooks/land.md](cookbooks/land.md) — horizon check first, then the plan |
 | looking at a board, the user drew one, or one is worth offering | [cookbooks/board.md](cookbooks/board.md) — before anything else |
 | building, and an assumption just broke | [cookbooks/land.md](cookbooks/land.md) § re-fogging |
@@ -75,10 +89,10 @@ text whether or not they take it:
 | Moment | Why |
 |---|---|
 | a question is about **shape** — what talks to what, ordering, what crosses a boundary — and the text form needs more than ~6 nodes | `A --> B` stops being readable exactly when the arrows start crossing |
+| the reconstruction is a flow, and the gate on it | what they owe you *is* a drawing, and a missing arrow names the slice they didn't read |
 | they're answering a structural question and stall, or say "hard to explain" | drawing is faster than typing, for them |
 | a probe changed the structure | show it as a diff on the board, not as a paragraph about the change |
 | the horizon check is structural | the reconstruction they owe you can *be* the board |
-| a new effort whose destination is a system, not a value | frames per horizon give the whole effort one picture |
 
 Offer, never open. Never wait for them to look, never answer with "see the
 board", and never let a board be the only place something is said. The board is
@@ -120,6 +134,7 @@ When a block arrives, mid-row and unloaded cookbook notwithstanding:
 
 | The drawing | You |
 |---|---|
+| contradicts the reconstruction | say so in one line — the drawing is authoritative for structure |
 | contradicts the row you're on | say so in one line — it may end the probe early |
 | contradicts a landed finding | reopen that row on the map |
 | a `?`, or a scribble you can't read | onto the map, not into this turn |
@@ -130,22 +145,27 @@ Never answer a drawing with a redraw. Fuller mechanics:
 
 ## Invariants
 
-1. **Don't ask the user something they can't know.** When an answer arrives with
+1. **Read only what the change needs.** The need scopes the reading, always.
+   The check is impact: if you can't name what moves when this lands, you
+   haven't read enough. Reading past that is archaeology, and it costs the user
+   the session.
+2. **Every claim about the system is quoted or it's a guess.** If you can't
+   quote the line that says it, it's your inference — mark it as one.
+3. **Don't ask the user something they can't know.** When an answer arrives with
    a shrug, a "probably", a restatement of your own suggestion, or an instant
-   yes to your recommendation, stop collecting it. Re-put it as a scenario
-   (below); if that still draws a shrug, it's a probe, not an answer — onto the
-   map as one.
-2. **Never plan past the horizon.** The horizon is the first point where
+   yes to your recommendation, stop collecting it. Re-put it as a scenario;
+   if that still draws a shrug, it's a probe, not an answer — onto the map.
+4. **Never plan past the horizon.** The horizon is the first point where
    building will teach you something that changes everything after it. Beyond
    it, write named unknowns, not steps.
-3. **Probe code is throwaway and quarantined.** Never write production code
+5. **Probe code is throwaway and quarantined.** Never write production code
    during a sightline session, and never import production code into a probe.
    A probe answers a question and then dies.
-4. **Every resolution produces something the user can disagree with.** A claim
+6. **Every resolution produces something the user can disagree with.** A claim
    they can only nod at is not a resolution.
-5. **The user's understanding is a gate.** If they can't explain a decision
-   back, it isn't made yet, however good it is.
-6. **The context window is not the store.** Anything that matters is on disk
+7. **The user's understanding is a gate.** If they can't explain a decision
+   back — or the system it rests on — it isn't made yet, however good it is.
+8. **The context window is not the store.** Anything that matters is on disk
    before the turn ends. Assume this session dies without warning.
 
 ## How to talk during a session
@@ -220,9 +240,10 @@ lines carry the context:
 ```
 
 This is the text twin of showing a probe's result as a board diff, and it is the
-form most turns want: a probe rarely invents a shape, it moves one. Show the
-whole block instead only when most of it is new, when the omitted context would
-hide ownership or order, or when they need something copyable to write against.
+form most turns want: neither a probe nor a new feature usually invents a shape,
+it moves one. Show the whole block instead only when most of it is new, when the
+omitted context would hide ownership or order, or when they need something
+copyable to write against.
 
 Rules:
 - Under ~60 words of prose per turn. Longer wants a view, not more sentences.
@@ -237,17 +258,18 @@ Rules:
   then `open` it. Not a second board: when a board is live, structure lives
   there.
 
-Same for what you produce: findings, ADRs, plans, the plan's `## Decided` lines.
-Short, exemplified, skimmable — the same forms, on disk.
+Same for what you produce: `current-state.md`, `impact.md`, findings, ADRs, the
+plan's `## Decided` lines. Short, exemplified, skimmable — the same forms, on
+disk.
 
 ## Working outside the context window
 
-Fogged work outlives its context window by definition — probes take turns, and
-each finding changes what the next question even is. So the session is not the
-unit of work. The map is.
+Understanding a system outlives a context window by definition — reading takes
+turns, probes take turns, and each finding changes what the next question even
+is. So the session is not the unit of work. The map is.
 
-**Effort** — one fogged destination, held on one map, taking however many
-contexts it takes. It is the thing `.sight/<effort>/` is named for.
+**Effort** — one destination, held on one map, taking however many contexts it
+takes. It is the thing `.sight/<effort>/` is named for.
 
 ```
 effort    tenant-isolation        one destination, one MAP.md, one board
@@ -262,7 +284,7 @@ efforts.
 
 | Too small | Right | Too big |
 |---|---|---|
-| one question — that's a row, or just `/probe` | one thing you can't yet see the end of | a roadmap — several destinations, so several maps |
+| one question — that's a row, or just `/probe` | one change you can't yet see the end of | a roadmap — several destinations, so several maps |
 
 Name it for the destination, not the feature: `tenant-isolation`, not `phase-2`.
 Phases are your boundaries and they move; the destination is what the user
@@ -273,15 +295,33 @@ Layout, or the equivalent on whatever tracker the repo uses:
 ```
 .sight/<effort>/
   MAP.md              index only — never a store
+  current-state.md    how the touched part works today, and why
+  impact.md           where the new thing lands, and what moves
+  alternatives.md     approaches weighed, the pick, what the pick costs
   q/<nn>-<slug>.md    one file per open question, self-contained
   findings/<nn>.md    the 4-liner /probe returns, written the moment it ends
   probes/<nn>-<slug>/ excluded spike code, burned once the finding lands
   board.excalidraw    optional, one per effort
 ```
 
-The map, the questions and the findings are the effort — they belong in the
-repo so it survives a laptop. The spike doesn't, and neither its quarantine nor
-its death is left to memory — both are recipes:
+### What lives where, and for how long
+
+The three reading artifacts are **dated by construction** — they describe the
+system *before* this change, so they are stale the moment it lands. A decision
+isn't. That difference is the whole filing rule:
+
+| | Where | Lifespan |
+|---|---|---|
+| decisions, and why | the repo, in the shape it already keeps them — ADRs, glossary | durable |
+| `current-state.md`, `impact.md`, `alternatives.md` | `.sight/<effort>/` | dies with the effort, after the handoff reads it |
+| open questions | `q/`, and the plan's `## Deferred` / `## Known unknowns` | until they're answered |
+
+There is no third store. Do not add an `open-questions.md`; `q/` is that file,
+one row at a time.
+
+The map, the artifacts, the questions and the findings belong in the repo so an
+effort survives a laptop. The spike doesn't, and neither its quarantine nor its
+death is left to memory — both are recipes:
 
 ```
 sight spike 07-transit-api "p99 < 40ms over 500 conns → notify; any drop → outbox"
@@ -301,31 +341,51 @@ The board adds nothing either: the excalidraw it serves ships with the skill.
 **MAP.md** stays under roughly 60 lines whatever the size of the effort, because
 every resumed session reads it in full. It holds: the destination, the horizon,
 the triage table with a one-line status per row, and a pointer to the current
-row. It never restates a finding — it links to it. If the map is growing, you're
-storing in it.
+work. It never restates a finding or a flow — it links. If the map is growing,
+you're storing in it.
 
 **Question files** carry everything needed to work that row cold: the question,
-why it's open, what Phase 0 already ruled out, the probe plan, the timebox. A
-fresh session should be able to open one file and start work without reading
+why it's open, what the reading already ruled out, the probe plan, the timebox.
+A fresh session should be able to open one file and start work without reading
 the others. This is what lets the effort be arbitrarily large — the map scales,
 the working set doesn't.
 
-Two machine-read conventions, because resuming is a script, not a habit:
+### The pointer, and the reading frontier
+
+Two machine-read conventions, because resuming is a script, not a habit. The
+pointer names whatever is being worked, and during reconstruction that is an
+artifact, not a row:
 
 ```
-MAP.md              → current: q/07-schema-vs-rls.md      one line, literal
+MAP.md
+  → current: current-state.md            while reading
+  → current: q/07-schema-vs-rls.md       after triage
 
-q/07-….md frontmatter
-  touched: 2026-08-04          the day this row's Phase 0 answers were true
-  paths: src/db src/auth.ts    what the question depends on (optional)
+frontmatter, on whatever the pointer names
+  touched: 2026-08-21          the day this file's answers were true
+  paths:   src/api src/db      what it depends on — and, while reading, what's been read
+  unread:  the write path below OrderService     reconstruction only
 ```
 
-Update `touched:` whenever you work the row. It is what makes staleness
+`paths:` does double duty: it feeds the `MOVED SINCE` git-log, and while reading
+it *is* the record of how far you got. `unread:` is the frontier — one line,
+plain English, enough that a cold context knows where to pick up.
+
+Update `touched:` whenever you work the file. It is what makes staleness
 detectable across days.
 
 ### The turn loop
 
-Work one row per context. At the end of every row, before anything else:
+**While reading**, the loop is per slice, not per context:
+
+1. Read a slice, write it into `current-state.md` immediately — not at the end.
+2. Update `paths:` and `unread:`, stamp `touched:`.
+3. Frontier empty → move to Fit.
+
+Never hold a slice in context intending to write it up later. That is the
+turn the session dies on.
+
+**Per row**, at the end of every one, before anything else:
 
 1. Land the finding (`Q / Tried / Found / Decides`), then `sight burn <nn>`.
    In that order — it refuses the other way round.
@@ -375,8 +435,9 @@ they stall, or take your recommendation instantly        → scenario
 
 Put the choice as two everyday situations with their real consequences, name no
 technology until after they pick, then map their pick back to what it costs.
-Worked example and the rules that keep it honest:
-[cookbooks/new-effort.md](cookbooks/new-effort.md) § scenarios.
+This works the same on a whole-change **approach** as on a single decision's
+**options** — worked example and the rules that keep it honest:
+[cookbooks/triage.md](cookbooks/triage.md) § scenarios.
 
 ```
 detect   instant yes, a shrug, a stall
@@ -399,15 +460,16 @@ deterministic command, not a reading habit:
 node scripts/resume.mjs [effort]
 ```
 
-It prints MAP.md, the current row's file, what moved in the repo since that row
-was `touched:`, and one `Decides:` line per finding. That output is the whole
-working set. Read nothing else — not the finished question files, not the old
-probe dirs. One exception, and `resume` names it when it applies: a board file
-is a first-class input, read before MAP.md. If you need what a closed row concluded, its `Decides:` line is
+It prints MAP.md, whatever the pointer names — the reading in progress or the
+current row — what moved in the repo since that file was `touched:`, and one
+`Decides:` line per finding. That output is the whole working set. Read nothing
+else — not the finished question files, not the old probe dirs. One exception,
+and `resume` names it when it applies: a board file is a first-class input, read
+before MAP.md. If you need what a closed row concluded, its `Decides:` line is
 already in front of you.
 
-Then, before any work: **the repo may have moved under this row.** Commits in
-the `MOVED SINCE` block invalidate that row's Phase 0 answers — re-check those
+Then, before any work: **the repo may have moved under this.** Commits in the
+`MOVED SINCE` block invalidate what the reading established — re-check those
 first, or you'll probe a question the codebase has already closed. Empty block,
 nothing to do.
 
@@ -422,6 +484,14 @@ when their trigger fires. Fog is layered, so plan in layers.
 
 ## Anti-patterns
 
+- Designing against the feature before reading the system. The order is the
+  whole skill.
+- Reading the whole codebase because the reading felt productive. The need
+  scopes it; anything past "what moves" is archaeology.
+- Reporting the system as prose. A paragraph about how three modules relate is
+  the worst form that answer has.
+- Citing without quoting. `[source: auth.ts]` reads identically whether it was
+  read or invented.
 - Re-running an interview that already happened. It did that better; take its
   leftovers.
 - Producing a complete plan on the first pass. Completeness this early is a

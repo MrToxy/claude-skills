@@ -3,7 +3,7 @@
 The common case, and the whole of a resumed session. One row, then the turn
 loop in SKILL.md, then clear.
 
-## Phase 2 — Resolve, one at a time
+## Resolve — one at a time
 
 Work the `now` rows — the ones the first slice cannot ship without — in order of
 cost-if-wrong. Never batched. If a row turns out to be shippable-around once you
@@ -44,7 +44,7 @@ Two things that stay yours, because they're triage decisions, not build ones:
 - **`Decides: nothing` is a real outcome.** An expired probe becomes a re-scoped
   cheaper row or a DEFER with a trigger. Never an opinion.
 
-## Phase 3 — Split the work at the seams
+## Seams — split the work
 
 Before building anything, propose which pieces the user writes by hand and which
 you write. This is not a courtesy — for a user who understands code by writing
@@ -91,7 +91,7 @@ State the split, let the user move pieces across the line, then respect it.
 Never fill in a hand seam because it would be faster, and never fill one in
 while "just making the tests pass".
 
-## Phase 4 — Understanding gate
+## Gate — understanding
 
 Gate each resolved decision on the user demonstrating they hold it — not on
 their approval, which costs nothing to give.

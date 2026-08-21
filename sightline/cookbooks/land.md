@@ -5,7 +5,7 @@ decisions. Also covers what to do when building re-fogs something.
 
 ## The horizon check — before the plan is written
 
-No `now` rows left. Phase 4 gated each decision as it landed, but it gates them
+No `now` rows left. The gate ran per decision as each landed, but it runs
 **one at a time**, so nothing so far has tested whether the user holds them
 together. That's the failure this catches: every row understood, the shape they
 add up to not.
@@ -46,7 +46,7 @@ not accept the artifact with a note about what's wrong with it — a corrected
 answer they didn't produce proves nothing.
 
 A second miss on the same row means that row was never held. Stop the map check
-— it has told you what it had to — reopen the row and re-run Phase 4 on it. The
+— it has told you what it had to — reopen the row and re-run the gate on it. The
 loop has an exit and this is it; without one, the only way out of a third pass
 is the accept-with-a-note this rule forbids.
 
@@ -56,16 +56,29 @@ off answer length and position rather than content.
 
 Skip this entirely if the effort resolved fewer than three rows.
 
-## Phase 5 — Write findings where the repo already keeps decisions
+## Land — decisions to the repo, understanding to the effort
+
+Two lifespans, and the difference *is* the filing rule:
+
+| | Where | Why |
+|---|---|---|
+| decisions, and why | the repo, in the shape it already keeps them | outlives the change |
+| `current-state.md`, `impact.md`, `alternatives.md` | stay in `.sight/<effort>/` | **dated by construction** — they describe the system *before* this change, so they are stale the moment it lands |
 
 Do not invent a parallel documentation system. If the repo has ADRs, a glossary,
-or per-phase plan files, findings land there in the repo's existing shape.
+or per-phase plan files, decisions land there in the repo's existing shape.
 
-If it has none, don't design one and don't leave the finding in `.sight/` —
+If it has none, don't design one and don't leave the decision in `.sight/` —
 that's how `.sight/` quietly becomes the parallel system this rule exists to
-prevent. Use the interview skill's fallback formats
+prevent. Use the planning skill's fallback formats
 (`plan-with-docs/references/adr-format.md`, `references/context-format.md`), so
 what you write is what it will later load as a constraint.
+
+And do not promote `current-state.md` into the repo as architecture
+documentation, however good it turned out. It was true on one day, about one
+slice, for one change. Living in `.sight/` is what lets it be written fast and
+wrong in places; the same file under `docs/` acquires an obligation to be
+maintained, and won't be. It has one consumer — the handoff — and it dies after.
 
 - A probe that settled a **structural, hard-to-reverse** question is an ADR —
   and unusually, one with evidence attached rather than reasoning alone.
@@ -102,13 +115,13 @@ Put both exits to the user. They pick:
 
 | Exit | When it's the right one |
 |---|---|
-| build it now | the findings and micro-worlds already say how — the common exit |
-| `/plan-with-docs` | the plan itself is the deliverable: phasing, acceptance criteria, someone else will follow it. It loads the ADRs and glossary you just landed as constraints |
+| `/plan-with-docs` | the default. Phasing, acceptance criteria, tracer bullets. It loads the ADRs and glossary you just landed as constraints, and the `.sight/` artifacts are there if it wants them. It does not need to know sightline ran |
+| build it now | the change is small enough that phasing would be ceremony — the reading was one component, the findings and micro-worlds already say how |
 
 Say which you'd take and why — then wait. Recommending is yours, choosing is
 theirs, and neither exit starts in this session.
 
-## Phase 6 — Re-fogging during the build
+## Re-fog — when the build contradicts something
 
 Once the user has started the build, it generates new questions; that's the
 point of stopping early. When implementation contradicts an assumption, or

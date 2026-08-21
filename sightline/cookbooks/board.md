@@ -100,7 +100,7 @@ context still holds:
 | What arrived | What you do |
 |---|---|
 | structure that contradicts the row you're on | say so now, in one line — it may end the probe early |
-| a `?`, a scribble, an unlabelled edge | new Phase 0 question or a PROBE row; goes on the map, not into this turn |
+| a `?`, a scribble, an unlabelled edge | new question for triage, or a PROBE row; goes on the map, not into this turn |
 | anything else | acknowledge in one line, carry on |
 
 Never reply to a change block with a redrawn board, and never treat drawing as
@@ -124,7 +124,7 @@ What to do with it:
 1. **Restate it as a numbered flow** and ask which edges are wrong. The drawing
    is a claim; check it against the code.
 2. **Mine the gaps — they are the fog.** A rough sketch's ambiguities map almost
-   one-to-one onto the Phase 0 question list:
+   one-to-one onto the questions the reading leaves open:
 
 | On the board | Question it generates |
 |---|---|
