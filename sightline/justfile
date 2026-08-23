@@ -16,6 +16,15 @@ _default:
 resume effort="":
     @node "{{sl}}/resume.mjs" {{effort}}
 
+# the only way an artifact exists — body on stdin, `touched:` stamped here
+#   ... | sight write findings/07.md --paths src/db --requires "single tenant"
+write +args:
+    @node "{{sl}}/write.mjs" {{args}}
+
+# what is not finished, before the pointer moves or a plan lands. changes nothing
+check effort="":
+    @node "{{sl}}/check.mjs" {{effort}}
+
 # open the board — localhost:3777, autosaves, and prints what they draw.
 # run it under Monitor (persistent): stdout is the change feed, not a log.
 board file=".sight/board.excalidraw":

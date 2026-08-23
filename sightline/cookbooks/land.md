@@ -5,6 +5,12 @@ decisions. Also covers what to do when building re-fogs something.
 
 ## The horizon check — before the plan is written
 
+Run `sight check` first. It settles the mechanical half in one command — a
+frontier still open, a row with no finding, a spike still on disk, an `## Moves`
+section with nothing under it — so the conversation below is about
+understanding rather than bookkeeping. It refuses nothing and decides nothing;
+green there is permission to run the gate, not a substitute for it.
+
 No `now` rows left. The gate ran per decision as each landed, but it runs
 **one at a time**, so nothing so far has tested whether the user holds them
 together. That's the failure this catches: every row understood, the shape they

@@ -111,6 +111,9 @@ The skill picks recipes; it never improvises shell. Each is one node script —
 | `sight …` | runs | does |
 |---|---|---|
 | `resume [effort]` | `node scripts/resume.mjs` | the only thing a fresh context reads |
+| `write <path> …` | `node scripts/write.mjs` | the only way an artifact exists — body on stdin, `touched:` stamped here |
+| `check [effort]` | `node scripts/check.mjs` | what is unfinished, before the pointer moves or a plan lands |
+| `spike` / `spikes` / `burn` | `node scripts/spike.mjs …` | open a quarantined spike, list what's standing, delete one whose finding landed |
 | `board <file>` | `node scripts/board-serve.mjs` | Excalidraw on localhost:3777, autosaving, two-way |
 | `add '<json>'` | `node scripts/board-add.mjs --json` | append boxes/arrows/frames, bound correctly |
 | `box` / `arrow` / `frame` | `node scripts/board-add.mjs …` | one element at a time |
@@ -361,25 +364,59 @@ MAP.md
   → current: current-state.md            while reading
   → current: q/07-schema-vs-rls.md       after triage
 
-frontmatter, on whatever the pointer names
-  touched: 2026-08-21          the day this file's answers were true
-  paths:   src/api src/db      what it depends on — and, while reading, what's been read
-  unread:  the write path below OrderService     reconstruction only
+frontmatter, on every artifact the effort keeps
+  touched:  2026-08-21          the day this file's answers were true
+  paths:    src/api src/db      what it depends on — and, while reading, what's been read
+  unread:   the write path below OrderService     reconstruction only
+  requires: single tenant       findings only — what must stay true
 ```
 
 `paths:` does double duty: it feeds the `MOVED SINCE` git-log, and while reading
 it *is* the record of how far you got. `unread:` is the frontier — one line,
 plain English, enough that a cold context knows where to pick up.
 
-Update `touched:` whenever you work the file. It is what makes staleness
-detectable across days.
+`requires:` is the other half of decay. `paths:` catches the code moving under a
+finding; `requires:` catches the conditions moving under it, which git cannot
+see — *single tenant*, *fewer than fifty groups*, *while the job is nightly*.
+When one stops being true the finding is dead, however untouched its files are.
+`requires: none` is a real answer; leaving it out is not, because a finding with
+no stated conditions is one nobody can tell has expired.
+
+### Artifacts are written through one command
+
+Every one of those keys is read by a script later, and every one of them was
+missed while they were prose: stamps below the fence where nothing parses them,
+findings landing with no `Decides:` line, a date typed a day wrong. So an
+artifact is not written by hand:
+
+```
+<body on stdin> | sight write findings/07.md --paths src/db --requires "single tenant"
+                | sight write current-state.md --paths "src/api" --unread "the write path"
+```
+
+It stamps `touched:` itself — a date you pass is a date you can get wrong — and
+refuses a body that is not yet the thing it claims to be. Shape only. What it
+cannot judge is whether the effort is *finished*, and demanding that at write
+would break the write-as-you-go loop, so that lives at the gate:
+
+```
+sight check        # every gate, read-only. run it before the pointer moves,
+                   # and again before landing a plan
+```
+
+`check` names what is unfinished: a frontier still open, a row with no finding,
+a spike still standing, an `## Moves` section with nothing under it. It changes
+nothing — a checker that edits is a checker nobody believes. And when it comes
+back green it says so plainly: the mechanical gates are met, and the gate that
+decides is the user explaining the system back, which nothing on disk can show.
 
 ### The turn loop
 
 **While reading**, the loop is per slice, not per context:
 
 1. Read a slice, write it into `current-state.md` immediately — not at the end.
-2. Update `paths:` and `unread:`, stamp `touched:`.
+2. Rewrite it through `sight write` — that is what updates `paths:` and
+   `unread:` and re-stamps `touched:`.
 3. Frontier empty → move to Fit.
 
 Never hold a slice in context intending to write it up later. That is the
@@ -387,7 +424,8 @@ turn the session dies on.
 
 **Per row**, at the end of every one, before anything else:
 
-1. Land the finding (`Q / Tried / Found / Decides`), then `sight burn <nn>`.
+1. Land the finding through `sight write findings/<nn>.md --paths … --requires …`
+   (`Q / Tried / Found / Decides`), then `sight burn <nn>`.
    In that order — it refuses the other way round.
 2. Update that row's status in MAP.md, move `→ current:`, and stamp `touched:`
    on every row you looked at — including ones you left open.

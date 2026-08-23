@@ -30,6 +30,17 @@ out  Q / Tried / Found / Decides, plus a micro-world if there's a visible
      surface; spike burned
 ```
 
+The finding lands through the one command, because it is read by a script
+months later and a hand-written one is stamped wrong or not at all:
+
+```
+sight write findings/07.md --paths "src/db/queue.ts" --requires "single tenant"
+```
+
+`--requires` is what the probe assumed and did not test. A probe that held at
+500 connections holds *at 500 connections*; say so, or the next session reads
+the `Decides:` line as unconditional.
+
 Open the spike dir with the recipe rather than `mkdir`, and close it with the
 other one:
 

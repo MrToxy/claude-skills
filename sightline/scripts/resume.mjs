@@ -86,14 +86,39 @@ if (!pointer) {
   }
 }
 
+// A finding is the one artifact meant to outlive the effort, which is exactly
+// why it rots unwatched: the code it rests on moves, and the `Decides:` line
+// goes on reading as true. It carries the same two stamps a row does, so it
+// gets the same git-log — plus `requires:`, for the conditions git cannot see.
 const findings = await readdir(join(dir, 'findings')).catch(() => []);
 if (findings.length) {
   const lines = [];
+  const stale = [];
+  const conditions = [];
   for (const f of findings.filter((f) => f.endsWith('.md')).sort()) {
     const t = await readFile(join(dir, 'findings', f), 'utf8');
-    lines.push(`${f.replace(/\.md$/, '').padEnd(4)} ${t.match(/^Decides:\s*(.+)$/m)?.[1] ?? '(no Decides: line)'}`);
+    const id = f.replace(/\.md$/, '');
+    lines.push(`${id.padEnd(4)} ${t.match(/^\s*(?:\*\*)?Decides:\s*(.+)$/m)?.[1] ?? '(no Decides: line)'}`);
+    const fm = frontmatter(t);
+    const paths = (fm.paths ?? '').split(/[,\s]+/).filter(Boolean);
+    if (fm.touched && paths.length) {
+      const moved = git(['log', '--oneline', '--since', fm.touched, '--', ...paths]);
+      if (moved) stale.push(`${id}  ${paths.join(' ')}  moved since ${fm.touched}\n`
+        + moved.split('\n').map((l) => `      ${l}`).join('\n'));
+    }
+    if (fm.requires && fm.requires !== 'none') conditions.push(`${id.padEnd(4)} ${fm.requires}`);
   }
   console.log(rule('FINDINGS — Decides only') + lines.join('\n'));
+  if (conditions.length) {
+    console.log(rule('FINDINGS — only while these hold') + conditions.join('\n')
+      + '\n\nGit cannot see these break. If one stopped being true, its finding is dead —\n'
+      + 'say so and reopen the row rather than planning on top of it.');
+  }
+  if (stale.length) {
+    console.log(rule('FINDINGS — may have decayed') + stale.join('\n\n')
+      + '\n\nThe code under these findings moved after they were written. Re-check them\n'
+      + 'before building on them; a decided row is not a permanently decided row.');
+  }
 }
 
 // A deferred row has no worker and no moment: it is re-read every session and

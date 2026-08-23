@@ -94,9 +94,15 @@ time, each with your recommended answer. They're already looking at the table;
 that is the cheapest moment they will ever have to answer. Do not carry an ASK
 into the probe work, and do not open a later session to ask one.
 
-Land each answer the turn it arrives — `findings/<nn>.md` with the question,
-their answer in their words, and a `Decides:` line — then flip the row on the
-map. No turn loop runs for an ASK row, so this is the only thing standing
+Land each answer the turn it arrives — the question, their answer in their
+words, and a `Decides:` line — then flip the row on the map:
+
+```
+sight write findings/<nn>.md --paths <what it touches> --requires "<what must stay true>"
+```
+
+An ASK answer is a finding like any other, and decays like one: *"we'll only
+ever have one tenant"* is a `requires:`, not a fact. No turn loop runs for an ASK row, so this is the only thing standing
 between four answers and a dead context. The batch isn't done until it's on
 disk.
 

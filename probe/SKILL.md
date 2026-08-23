@@ -204,7 +204,16 @@ it would be faster.
 In this order, before the context ends:
 
 1. Write the 4-line finding. Inline always; also to the caller's path if one
-   was passed.
+   was passed. Under `sightline` that path is written with one recipe, not by
+   hand — it stamps the date and the conditions the finding rests on:
+
+   ```
+   sight write findings/07.md --paths "src/db/queue.ts" --requires "single tenant"
+   ```
+
+   `--requires` is what you assumed rather than tested. A result that held at
+   500 connections held *at 500 connections*; unstated, it reads as
+   unconditional to whoever plans on it later.
 2. Keep the micro-world **only** if it encodes a structural decision — then it
    moves next to that decision's ADR and is committed with it. A kept
    micro-world must break loudly when the system moves under it; one that can
@@ -225,8 +234,9 @@ separate lines is what stops a probe from becoming a rationalisation.
 ## Called from sightline
 
 `sightline` passes the row's question, the rule agreed during triage, the box,
-and `findings/<nn>.md`. Return the 4-liner; it owns MAP.md, the ADR, and the
-understanding gate. Don't update the map, don't open the next row.
+and `findings/<nn>.md`. Return the 4-liner — written through `sight write`, with
+`--requires` — and nothing else; it owns MAP.md, the ADR, and the understanding
+gate. Don't update the map, don't open the next row.
 
 ## Anti-patterns
 

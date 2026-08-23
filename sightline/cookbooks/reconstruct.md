@@ -58,8 +58,17 @@ adjacent, that solution is a constraint, not a suggestion. Name it.
 
 ### Write as you go — never at the end
 
-Read a slice → write it into `current-state.md` → update `paths:` and
-`unread:` → stamp `touched:`. Then read the next slice.
+Read a slice → write it into `current-state.md` → read the next slice. One
+command does the writing, and the stamps come with it:
+
+```
+<the artifact so far> | sight write current-state.md \
+    --paths "src/api/orders.ts src/db/orders.ts" \
+    --unread "the retry path below OrderQueue"
+```
+
+`--unread ""` when the frontier closes; that empty field is what `sight check`
+reads to know the reading finished.
 
 Holding four slices in context to write up a tidy document at the end is the
 turn the session dies on, and it is exactly the turn that feels most productive.
