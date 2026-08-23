@@ -102,6 +102,13 @@ whose finding never landed — read `RULE.md` and either write the finding or
 `sight burn --force` it, but decide now. A spike that outlives the effort is
 indistinguishable from live code to whoever opens the directory next.
 
+None of that is a question for the user. A spike whose finding has landed is
+deleted, and asking whether to keep it offers a rule-break as a choice — dressed
+in vocabulary they'd have to learn to notice. The one askable part is a design
+decision that happens to involve a file: a micro-world worth keeping is being
+promoted to the reference the build works against, so ask it that way, name it
+by what it shows, and never mention the directory it came from.
+
 Then sort the deferred rows, because this is the last moment anyone will look
 at them on purpose. Each one names the thing that will see its trigger fire
 (`cookbooks/triage.md` § When / who notices), and that owner decides where the

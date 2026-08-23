@@ -90,7 +90,9 @@ rows are the most informative signal in the session — a question you filed as
 PROBE that they move to DEFER tells you the fog was never load-bearing.
 
 Then, in the same breath, **put every ASK row to them as one batch** — four at a
-time, each with your recommended answer. They're already looking at the table;
+time, each with your recommended answer, and none of them carrying a row number
+or a path (`SKILL.md` § Never make them learn your filing system). The row is
+how you find the question again; it is not the question. They're already looking at the table;
 that is the cheapest moment they will ever have to answer. Do not carry an ASK
 into the probe work, and do not open a later session to ask one.
 

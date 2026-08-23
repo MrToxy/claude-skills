@@ -182,6 +182,62 @@ explaining a shape is strictly worse than the shape.
 | a paragraph on the tradeoff | table, two columns, one row per option |
 | "consider whether X should own Y" | the two type signatures, pick one |
 
+### Never make them learn your filing system
+
+Row numbers, file paths and the words for your own machinery exist so a cold
+context can find things. They mean nothing to the user, and every one you put in
+front of them is a lookup you are charging them for.
+
+```
+internal   MAP.md · the q/ and findings/ paths · `sight` output · your turns
+external   everything they read — and that includes the label and every
+           option of a question you put to them
+```
+
+| Don't write | Write |
+|---|---|
+| `row 15` | the question it holds — *"missing option: excluded, or worst-cased?"* |
+| `findings/33c` | *"the card layout we settled"* |
+| `probes/06-score` | *"the scoring prototype"* |
+| `burn 06`, *spike*, *dissolved* | nothing — those are things you do, not things they decide |
+| *Invariant 5* | the reason itself, in one clause |
+
+Script output is the mechanism here. `resume`, `check` and `spikes` print row
+numbers and paths because **you** are the reader; relaying that text to the user
+is how the ids get out. Their vocabulary is correct — don't go and change it.
+
+**Then check the question still exists.** Translate it out of your filing
+system, and:
+
+```
+nothing left        it was bookkeeping. Do it, report it in one line.
+something left      that was always the question. Ask only that.
+```
+
+A worked example, because this is the failure it is named for. Two throwaway
+prototypes on disk, both findings landed — so the skill already knows they get
+deleted. What it asked instead:
+
+```
+✗  Two spikes are still on disk with their findings landed: probes/06-score
+   (the scorer behind rows 06/17/18/23/24/27) and probes/33-mapa. Burn them?
+     1. Keep 33-mapa, burn 06-score
+     2. Burn both (Invariant 5 — probes die once the finding lands)
+     3. Keep both — costs nothing but disk
+```
+
+Nine identifiers, and options 1 and 3 contradict the invariant that option 2
+cites. Offering a rule-break as a choice is worse than the jargon: it hands over
+a decision the skill had already made, phrased so the user cannot tell. Under
+the translation, the bookkeeping evaporates and one real question is left —
+a design one:
+
+```
+✓  Deleted the throwaway prototypes; their conclusions are in the notes.
+   One thing outlives them — the card mockup you approved. Keep it beside
+   the design notes as the reference to build against?
+```
+
 ### Pick the smallest view that carries the point
 
 One form per point. Two if they carry different points. Never all of them.
@@ -567,6 +623,9 @@ layered, so plan in layers.
   symptom, not an achievement.
 - Pressing a PROBE question until the user answers it. That launders a guess
   into a requirement.
+- Putting a row number, a file path or a word like *burn* in front of the user.
+  They are your filing system, and asking them to learn it is a cost with no
+  return. Worse, it hides bookkeeping questions that shouldn't be asked at all.
 - Letting a probe become the implementation because it worked, or starting the
   build because the plan is done. The plan is the handoff, not the go-ahead.
 - Skipping the understanding gate because the user is in a hurry. The hurry is
