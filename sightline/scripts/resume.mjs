@@ -96,6 +96,26 @@ if (findings.length) {
   console.log(rule('FINDINGS — Decides only') + lines.join('\n'));
 }
 
+// A deferred row has no worker and no moment: it is re-read every session and
+// acts only when a human happens to notice. Naming them here is what turns that
+// re-read from cost into a check. Grep, not a parser — real maps put DEFER in
+// three different columns. Table rows only: prose says the word too, and a
+// missed row is cheaper than a paragraph presented as a question.
+const deferred = map.split('\n')
+  .filter((l) => l.trim().startsWith('|') && /\bDEFER\b/.test(l)
+    && !/findings\//.test(l) && !/resolved/i.test(l))
+  .map((l) => l.trim());
+if (deferred.length) {
+  console.log(rule('DEFERRED — run these against whatever lands today') + deferred.join('\n')
+    + '\n\nEach time something new lands — a finding, a new row, a plan step, something the\n'
+    + 'user just said — put every row above to three questions:\n'
+    + '  dead?   did what we just did already answer it sideways?  → close it\n'
+    + '  awake?  did its trigger fire?                             → reopen it, and say so\n'
+    + '  cheap?  is the user in this topic now, and could they answer off the top of\n'
+    + '          their head?                                       → ask it, though nothing blocks\n'
+    + 'Nothing new landed → skip. Never pull a PROBE or RESEARCH row forward this way.');
+}
+
 // A spike is supposed to die with its finding, and the context that ends
 // mid-probe takes that intention with it. So the survivors are named, not
 // remembered.

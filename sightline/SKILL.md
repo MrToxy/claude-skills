@@ -391,12 +391,14 @@ turn the session dies on.
    In that order — it refuses the other way round.
 2. Update that row's status in MAP.md, move `→ current:`, and stamp `touched:`
    on every row you looked at — including ones you left open.
-3. Land the ADR or glossary change if the finding earned one.
-4. **If the finding moved the structure, offer the board** — one line, then
+3. **Run the finding past every open DEFER row** — dead, awake, cheap. A row
+   this finding answered sideways is closed here or it lies for weeks.
+4. Land the ADR or glossary change if the finding earned one.
+5. **If the finding moved the structure, offer the board** — one line, then
    carry on. This is the trigger that fires most and gets skipped most: the
    table above is read once at load, and by the time a probe reclassifies a
    thing you are six rows deep and drawing nothing.
-5. Tell the user the context is now safe to clear.
+6. Tell the user the context is now safe to clear.
 
 Then clear. Carrying a resolved row's detail into the next row costs context and
 buys nothing — the finding is the compression.
@@ -411,7 +413,7 @@ them. Serializing them just spends one interruption each.
 |---|---|
 | ASK | every open one at once, four at a time, each with your recommended answer |
 | RESEARCH / PROBE | one per context; pointer moves, the finding compresses |
-| DEFER | not asked at all until its trigger fires |
+| DEFER | never blocks and is never worked — but checked three ways whenever something new lands, and *cheap* may ask it |
 
 So **an ASK row never holds `→ current:`** — the pointer is for work, and an ASK
 is not work, it's a message. Park the pointer on the next PROBE or RESEARCH row
@@ -451,6 +453,33 @@ decision exists; a scenario is what makes the decision answerable before it
 does. If no everyday situation carries the property the decision turns on, it
 was never an ASK — demote it.
 
+### A deferred row is not a parked row
+
+DEFER is the only class with no worker and no moment, which is what makes it
+rot: re-read every session, acting only when a human happens to notice. So it
+gets a moment. Whenever something new lands — a finding, a new row, a plan step,
+a thing the user just said — put the open DEFER rows to three questions:
+
+| | Ask | If yes |
+|---|---|---|
+| **dead?** | did what we just did already answer this, sideways? | close it, naming the finding that did |
+| **awake?** | did its trigger fire? | reopen it, and say so |
+| **cheap?** | is the user in this topic *right now*, and can they answer off the top of their head? | ask it now, though nothing is blocked |
+
+Nothing new landed → skip it. Nothing can have changed.
+
+**Dead is the common one.** A row parked as *"which map library"* gets answered
+by whoever builds the first thing that draws a map, and the map still says DEFER
+weeks later. That is worse than a row that never fires: it reports a hole that
+isn't there, and the plan routes around it.
+
+**Cheap is the one that expires.** The answer costs the user nothing while
+they're already thinking about it, and costs a re-explanation three weeks after.
+Same rule as the ASK batch, for the same reason — that is the cheapest moment
+they will ever have to answer. Only for what they answer from their head: a
+PROBE or RESEARCH row pulled forward because the topic is nearby is scope creep,
+not thrift.
+
 ### Resuming
 
 An effort spans days, machines, and any number of contexts. So resuming is one
@@ -479,8 +508,10 @@ re-derive the triage and do not re-ask resolved questions.
 (No node? Do it by hand in that exact order, and stop where the script stops.)
 
 If the effort is large enough that even the triage table strains the map, split
-it: one map per horizon, and the deferred rows carry forward to the next map
-when their trigger fires. Fog is layered, so plan in layers.
+it: one map per horizon, and the deferred rows carry forward onto the next map
+— carrying their owners, and getting the three checks there like anywhere else.
+Waiting for the trigger to fire is what the split must not become. Fog is
+layered, so plan in layers.
 
 ## Anti-patterns
 

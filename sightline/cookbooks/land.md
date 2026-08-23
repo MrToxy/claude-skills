@@ -96,13 +96,28 @@ whose finding never landed — read `RULE.md` and either write the finding or
 `sight burn --force` it, but decide now. A spike that outlives the effort is
 indistinguishable from live code to whoever opens the directory next.
 
+Then sort the deferred rows, because this is the last moment anyone will look
+at them on purpose. Each one names the thing that will see its trigger fire
+(`cookbooks/triage.md` § When / who notices), and that owner decides where the
+row goes:
+
+| Who notices | Where the row goes |
+|---|---|
+| the plan | a step in `## Route`, with the decision as its precondition. One breadcrumb line stays in `## Deferred` pointing at the step |
+| you, in a later session | stays in `## Deferred`, with the three checks running against it |
+| a tripwire | **a step in `## Route` that plants it** — the assert, the log line, the failing test. A tripwire nobody builds is a tripwire nobody has |
+| nobody | it shipped. The default goes in `## Decided` and the row closes |
+
+A plan that hands over four deferred rows and plants no tripwire has deferred
+nothing; it has forgotten four things in writing.
+
 Then the plan itself, short by construction:
 
 ```
 ## Destination
 ## Decided          — one line each, linking finding or ADR
-## Route to horizon — the steps that are actually knowable now
-## Deferred         — the decision, and the trigger that forces it
+## Route to horizon — the steps that are knowable now, tripwires among them
+## Deferred         — the decision, the trigger, and who will notice it fire
 ## Known unknowns   — what we expect to learn at the horizon
 ```
 
@@ -128,4 +143,10 @@ point of stopping early. When implementation contradicts an assumption, or
 reveals a decision the plan glossed over: stop, triage it, resolve it the same
 way. Never decide it quietly inside
 an implementation turn — that's the silent decision-making that leaves the user
-behind. When a deferred trigger fires, say so and reopen that row.
+behind.
+
+The deferred rows are live through all of this. Every time something lands, they
+get the three checks (`SKILL.md` § A deferred row is not a parked row): did this
+just answer one sideways, did one wake up, and is the user close enough to the
+topic right now to settle one for free. A trigger that fires and isn't named is
+the same silent decision, taken by default instead of out loud.

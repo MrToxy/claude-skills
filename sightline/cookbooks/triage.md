@@ -56,8 +56,20 @@ Render one table and nothing else:
     preference between things nobody has seen, and the answer lands as an ASCII
     box that reads exactly like a decision. It is a PROBE: build the variants on
     the same fixtures, let them pick. Ask about a surface only once it is drawn.
-- **When** — now, or the trigger that will force it (`when the second tenant
-  lands`, `when a job first fails mid-run`).
+- **When / who notices** — now, or the trigger that will force it **and the
+  thing that will see it fire**. A trigger with no owner is not a trigger, it's
+  a wish: re-read every session, acting only when a human happens to look.
+
+  | The trigger is… | Who notices | So the row is |
+  |---|---|---|
+  | a step in our own plan (`when 06 lands`, `before the mutators are written`) | the plan | not DEFER — a **precondition on that step**. One breadcrumb line on the map, the decision in `## Route` |
+  | something the user will say (`when someone asks for a spread`) | you, at the three checks (`SKILL.md` § A deferred row is not a parked row) | a real DEFER row. This is the only kind that stays |
+  | something the running system does (`first result over ~50 groups`) | nothing, unless planted | a **tripwire** — assert, log, failing test — landed as a step in `## Route`. The code raises its own hand |
+  | nobody, ever (`revisit on complaint`) | — | it **shipped**. Write the default into the decision record and close the row |
+
+  Last row is not a technicality. A complaint does not arrive at a `MAP.md`, and
+  a row waiting for one is indistinguishable from a row that will wait forever.
+  If the tripwire can't be planted, that row is this row.
 
 The column order is the whole mechanism. Asked cost-first, *cheap* reads as
 permission to settle a row in one line, and four rows out of eight went that way

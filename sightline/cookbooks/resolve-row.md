@@ -7,8 +7,10 @@ loop in SKILL.md, then clear.
 
 Work the `now` rows — the ones the first slice cannot ship without — in order of
 cost-if-wrong. Never batched. If a row turns out to be shippable-around once you
-open it, put it back to DEFER with a trigger rather than finishing it because
-you're already here.
+open it, put it back to DEFER rather than finishing it because you're already
+here — with a trigger *and* the thing that will notice it fire, same as any
+other DEFER row (`triage.md` § When / who notices). A row demoted without an
+owner is a row you dropped.
 
 **RESEARCH** — go read. Return under ten lines: what's there, what it
 constrains, what surprised you. Cite files and line ranges so the user can
@@ -42,7 +44,7 @@ Two things that stay yours, because they're triage decisions, not build ones:
   the row isn't ready — usually because it's two questions. Split it in the
   table, don't send it.
 - **`Decides: nothing` is a real outcome.** An expired probe becomes a re-scoped
-  cheaper row or a DEFER with a trigger. Never an opinion.
+  cheaper row or a DEFER carrying a trigger and its owner. Never an opinion.
 
 ## Seams — split the work
 
