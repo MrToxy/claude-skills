@@ -56,6 +56,12 @@ them whether the new thing belongs inside the existing shape or beside it.
 Pattern discovery lives here too: if the codebase already solved something
 adjacent, that solution is a constraint, not a suggestion. Name it.
 
+**If the part you're reading has a visible surface, look at it.** Run it, open
+the page, screenshot it into `current-state.md`. A screen you have only read the
+JSX of is a claim you cannot quote, and the reconstruction of a UI written
+entirely from source describes what the code says rather than what the user
+sees — which is the thing the change is actually about.
+
 ### Write as you go — never at the end
 
 Read a slice → write it into `current-state.md` → read the next slice. One
@@ -128,6 +134,11 @@ file tree is the ownership. Never a paragraph about how three modules relate.
 
 Then gate it, before Fit. The user has to hold the system or they cannot judge
 where the new thing goes.
+
+**When the flow is structural, offer the board first.** What they owe you here
+*is* a drawing, so this is the cheapest moment in the whole effort to open one —
+and the moment most often missed, because the gate reads like a question and
+questions get typed. Offer it, don't wait for it.
 
 **Let them pick the medium.** A drawing is right or wrong the same way a type
 is, and a missing arrow names the exact thing they didn't read — but a typed

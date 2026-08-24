@@ -81,18 +81,41 @@ shouldn't carry the other phases while it does.
 
 Read one. Needing two at once usually means the row is two rows.
 
-### When to offer a board
+### When to offer a board, and when to offer a prototype
 
-The user will rarely ask. Offer at these moments — one line, then carry on in
-text whether or not they take it:
+Two instruments, and which one is never a matter of taste — it follows from what
+the question is about:
 
-| Moment | Why |
-|---|---|
-| a question is about **shape** — what talks to what, ordering, what crosses a boundary — and the text form needs more than ~6 nodes | `A --> B` stops being readable exactly when the arrows start crossing |
-| the reconstruction is a flow, and the gate on it | what they owe you *is* a drawing, and a missing arrow names the slice they didn't read |
-| they're answering a structural question and stall, or say "hard to explain" | drawing is faster than typing, for them |
-| a probe changed the structure | show it as a diff on the board, not as a paragraph about the change |
-| the horizon check is structural | the reconstruction they owe you can *be* the board |
+```
+the question is about…
+  what talks to what · order · who owns the write   → board      they draw
+  what it looks like · a layout · a screen          → prototype  they look, they pick
+```
+
+The user will rarely ask for either. Offer at these moments — one line, then
+carry on in text whether or not they take it:
+
+| Moment | Instrument | Why |
+|---|---|---|
+| a question is about **shape** — what talks to what, ordering, what crosses a boundary — and the text form needs more than ~6 nodes | board | `A --> B` stops being readable exactly when the arrows start crossing |
+| the reconstruction is a flow, and the gate on it | board | what they owe you *is* a drawing, and a missing arrow names the slice they didn't read |
+| they're answering a structural question and stall, or say "hard to explain" | board | drawing is faster than typing, for them |
+| a probe changed the structure | board | show it as a diff on the board, not as a paragraph about the change |
+| the horizon check is structural | board | the reconstruction they owe you can *be* the board |
+| **the need, or a row, is about a visible surface** — a card, a screen, a layout, what goes where on it | **prototype** | nobody has a preference about a surface they have not seen, and prose about one reads like agreement without being any |
+
+That last row is the one that gets missed, because a layout question does not
+look like a shape question — nothing is crossing a boundary, so none of the
+board moments match and the surface gets settled in sentences. An effort once
+described its main card as *"one row — text left, a 150px radar right, needs
+underneath"*, revised it three times, and never once put a picture in front of
+the user; the user eventually asked for the prototype themselves. If the thing
+has a visible surface, the reconstruction includes **looking at it**, and the
+row that changes it is settled by seeing it, not by describing it.
+
+The prototype is not a second board. It is the probe's micro-world
+([cookbooks/triage.md](cookbooks/triage.md) § layouts): one HTML file, the
+effort's real data, the variants side by side, and `open` it.
 
 Offer, never open. Never wait for them to look, never answer with "see the
 board", and never let a board be the only place something is said. The board is
@@ -488,10 +511,13 @@ turn the session dies on.
 3. **Run the finding past every open DEFER row** — dead, awake, cheap. A row
    this finding answered sideways is closed here or it lies for weeks.
 4. Land the ADR or glossary change if the finding earned one.
-5. **If the finding moved the structure, offer the board** — one line, then
-   carry on. This is the trigger that fires most and gets skipped most: the
-   table above is read once at load, and by the time a probe reclassifies a
-   thing you are six rows deep and drawing nothing.
+5. **Show what the finding changed, in the instrument it belongs to** — the
+   board if it moved the structure, the prototype if it settled a surface. One
+   line, then carry on. This is the trigger that fires most and gets skipped
+   most: the table above is read once at load, and by the time a probe
+   reclassifies a thing you are six rows deep and drawing nothing. *Moved the
+   structure* alone is what let a whole run of card-layout rows past it — they
+   moved nothing structural, and were written up in prose every time.
 6. Tell the user the context is now safe to clear.
 
 Then clear. Carrying a resolved row's detail into the next row costs context and
@@ -615,6 +641,11 @@ layered, so plan in layers.
   scopes it; anything past "what moves" is archaeology.
 - Reporting the system as prose. A paragraph about how three modules relate is
   the worst form that answer has.
+- Settling a visible surface in sentences. *"One row — text left, a 150px radar
+  right, needs underneath"* is not a design the user agreed to; it is a design
+  they could not see well enough to disagree with.
+- Waiting to be asked for a board or a prototype. They will not ask. An effort
+  ran twenty-nine findings, several of them layouts, and opened neither.
 - Citing without quoting. `[source: auth.ts]` reads identically whether it was
   read or invented.
 - Re-running an interview that already happened. It did that better; take its

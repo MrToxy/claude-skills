@@ -49,6 +49,19 @@ sight spike 07-transit-api "<the rule>"    # dir + RULE.md + quarantine
 sight burn 07                              # after the finding is written
 ```
 
+Then put the result in front of them in the instrument it belongs to, before
+writing it up:
+
+| The row was about | You end with |
+|---|---|
+| a visible surface | the micro-world open in their browser, and their pick |
+| structure the probe moved | a diff on the board, not a paragraph about the change |
+| anything else | the finding, in the forms from `SKILL.md` § how to talk |
+
+A surface row written up in prose is the failure this exists to stop. The
+description reads like agreement — they cannot disagree with a layout they have
+never seen — and the next row builds on a decision nobody actually made.
+
 Two things that stay yours, because they're triage decisions, not build ones:
 
 - **No rule, no probe.** If neither of you can say what result picks A over B,

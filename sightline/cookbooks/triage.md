@@ -56,6 +56,15 @@ Render one table and nothing else:
     preference between things nobody has seen, and the answer lands as an ASCII
     box that reads exactly like a decision. It is a PROBE: build the variants on
     the same fixtures, let them pick. Ask about a surface only once it is drawn.
+
+    The build is one HTML file — the variants side by side, the effort's real
+    data in them, not lorem — and **you offer to open it**. That offer is the
+    step that goes missing: the row gets classified PROBE correctly, then gets
+    resolved in sentences anyway because nobody said *"want to look at it?"*.
+    Their pick is the finding. Write down what they picked *and* what they said
+    while picking — that is usually the real constraint.
+  - **A shape question over ~6 nodes is asked on the board, not in ASCII.**
+    Same reason, other instrument (`SKILL.md` § When to offer a board).
 - **When / who notices** — now, or the trigger that will force it **and the
   thing that will see it fire**. A trigger with no owner is not a trigger, it's
   a wish: re-read every session, acting only when a human happens to look.
